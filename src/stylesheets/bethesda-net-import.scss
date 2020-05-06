@@ -1,0 +1,53 @@
+#workshop-import-dialog {
+    .modal-dialogue {
+        width: 60%;
+    }
+
+    .modal-body img {
+        max-width: 100%;
+    }
+
+    .modal-body {
+        height: 60vh;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.workshop-import-container {
+    padding: 16px;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    overflow: hidden auto;
+
+
+    .refresh-btn {
+        width: 100%;
+        margin: 8px 0;
+    }
+
+    .row {
+        width: 100%;
+        background: var(--brand-bg);
+        margin: 4px 0;
+        padding: 4px 0;
+        max-height: 5em;
+    }
+
+    .row:hover {
+        background: var(--brand-menu);
+        border: 1px solid #eee;
+    }
+
+    .btn {
+        padding: 2px 4px;
+    }
+}
+
+.import-mods-to-disable {
+    min-height: 10vh;
+    max-height: 20vh;
+    overflow-y: scroll;
+}
