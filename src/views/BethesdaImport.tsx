@@ -36,7 +36,7 @@ interface IComponentState {
     importEnabled: { [id: string]: boolean };
     bethesdaModManifestPath?: string;
     bethesdaCCManifestPath?: string;
-    importModsToDisable?: IBethesdaNetEntries[];
+    gamePath?: string,
     importPath?: string;
     progress?: { mod: string, perc: number };
     failedImports: string[];
@@ -80,11 +80,15 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         this.nextState.error = undefined;
 
         const gamePath : string = discovered[gameId].path;
+        this.nextState.gamePath = gamePath;
+        // Get the Bethnet paths
         this.nextState.bethesdaModManifestPath = path.join(gamePath, 'Mods');
         this.nextState.bethesdaCCManifestPath = path.join(gamePath, 'Creations');
+
+        // See if we have any mods installed by changing the manifests.
         return fs.readdirAsync(path.join(gamePath, 'Mods'))
-        .then(mods => {
-            if (!mods.length) this.nextState.error = (
+        .then(mainfests => {
+            if (!mainfests.length) this.nextState.error = (
                 <span>
                     <h3>{t('No mods detected')}</h3>
                     {t('You do not appear to have any mods from Bethesda.net installed.')}
@@ -120,8 +124,6 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         // Tasks to perform before loading the setup step.
         const { bethesdaCCManifestPath, bethesdaModManifestPath } = this.state;
         const { mods, t } = this.props;
-        // const vortexState = this.context.api.store.getState();
-        // const networkConnected = vortexState.session.base.networkConnected;
 
         return getBethesdaNetModData(bethesdaModManifestPath)
             .then((bethNetMods : IBethesdaNetEntries[]) => this.nextState.modsToImport = convertModArray(bethNetMods, mods))
@@ -134,35 +136,25 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     </span>
                 );
                 Promise.resolve();
-            })
-
-
-        return Promise.resolve();
-
-        // return getWorkshopModData(workshopPath)
-        //     .then((workshopMods: IBethesdaNetEntries[]) => this.nextState.modsToImport = convertWorkshopMods(workshopMods, mods))
-        //     .catch(err => {
-        //         if (err.code === 'ENOTFOUND') return this.nextState.error = (<span><h3>Steam API could not be reached</h3>Please ensure you have an internet connection to use the feature.</span>)
-        //     else this.nextState.error = <p>Error with the Steam API {err.code} {err.message}</p>
-        //     });
+            });
     }
 
     private startImport(): Promise<void> {
         const { t } = this.props;
-        const { modsToImport } = this.state;
+        const { modsToImport, bethesdaModManifestPath, gamePath } = this.state;
 
         const modList = modsToImport ? Object.keys(modsToImport).map(id => modsToImport[id]): [];
         const enabledMods = modList.filter(mod => this.isModEnabled(mod));
 
         // Might want to check we can write to the folder(s) here?
 
-        // importMods(t, this.context.api.store, workshopPath, enabledMods, (mod: string, perc: number) => {
-        //     this.nextState.progress = { mod, perc };
-        // })
-        // .then(errors => {
-        //     this.nextState.failedImports = errors;
-        //     this.setStep('cleanup');
-        // });
+        importMods(t, this.context.api.store, gamePath, enabledMods, (mod: string, perc: number) => {
+            this.nextState.progress = { mod, perc };
+        })
+        .then(errors => {
+            this.nextState.failedImports = errors;
+            this.setStep('review');
+        });
 
 
         // This needs to remain to exit this function after launching the promise.
@@ -204,7 +196,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
 
     private nextDisabled():boolean {
         // Can we use the next button?
-        const {error, importStep, importModsToDisable, importEnabled, bethesdaModManifestPath} = this.state;
+        const {error, importStep, importEnabled, bethesdaModManifestPath} = this.state;
         return (error !== undefined) || (importStep === 'wait') 
         || ((importStep === 'start') && (!bethesdaModManifestPath))
         || ((importStep === 'setup') && (Object.keys(importEnabled).map(key => importEnabled[key] === true).length) === 0);
@@ -366,7 +358,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     <Icon name='feedback-success' />{t('Import successful')}
                 </span>)
                 : (<span className='import-errors'>
-                    <Icon name='feedback-error' />{t('Import successful')}
+                    <Icon name='feedback-error' />{t('Import unsuccessful')}
                 </span>)
                 }
             </div>
@@ -435,6 +427,33 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 isToggleable: true,
                 isSortable: true,
                 filter: new TableTextFilter(true),
+                edit: {},
+                sortFunc: (lhs: string, rhs: string, locale: string): number => {
+                    return lhs.localeCompare(rhs, locale, { sensitivity: 'base' });
+                }
+            },
+            {
+                id: 'version',
+                name: 'Version',
+                description: 'The Bethesda.net version of this mod.',
+                icon: 'id-badge',
+                calc: (mod: IBethesdaNetEntries) => mod.version,
+                placement: 'both',
+                isToggleable: true,
+                isSortable: true,
+                isDefaultVisible: true,
+                edit: {}
+            },
+            {
+                id: 'author',
+                name: 'Author',
+                description: 'The Bethesda.net author of this mod.',
+                icon: 'id-badge',
+                calc: (mod: IBethesdaNetEntries) => mod.author,
+                placement: 'both',
+                isToggleable: true,
+                isSortable: true,
+                isDefaultVisible: true,
                 edit: {},
                 sortFunc: (lhs: string, rhs: string, locale: string): number => {
                     return lhs.localeCompare(rhs, locale, { sensitivity: 'base' });

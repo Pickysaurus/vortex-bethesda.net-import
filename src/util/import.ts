@@ -3,26 +3,25 @@ import * as path from 'path';
 import * as Redux from 'redux';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 
-import { actions, selectors, types, log, util } from 'vortex-api';
+import { actions, selectors, types, log, util, fs } from 'vortex-api';
 
 
 function importMods(t: Function,
                     store: Redux.Store<types.IState>,
-                    wsBasePath: string,
+                    gamePath: string,
                     mods: IBethesdaNetEntries[],
                     progress: (mod: string, idx: number) => void): Promise<string[]> {
     
     const gameId = selectors.activeGameId(store.getState());
     const errors: string[] = [];
 
-    log('debug', 'Steam Workshop import starting');
+    log('debug', 'Bethesda.net import starting');
     const installPath = selectors.installPath(store.getState());
     return Promise.mapSeries(mods, (mod, idx, len) => {
         log('debug', 'transferring', mod);
-        // const vortexId = `steam-${mod.publishedfileid}-${Math.floor(new Date().getTime() / 1000)}`;
-        const vortexId = `steam-${mod.id}`;
+        const vortexId = `bethesdanet-${mod.id}`;
         progress(mod.title, idx/len);
-        return transferMod(mod, wsBasePath, installPath, vortexId)
+        return transferMod(mod, gamePath, installPath, vortexId)
             .then(() => Promise.resolve(''))
             .catch(err => {
                 log('debug', 'Failed to import', err);
@@ -40,11 +39,16 @@ function importMods(t: Function,
 
 }
 
-function transferMod(mod: IBethesdaNetEntries, wsPath: string, installPath: string, vortexId: string): Promise<any> {
-    const sourcePath = path.join(wsPath, mod.id);
-    const destinationPath = path.join(installPath, vortexId);
+function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: string, vortexId: string): Promise<any> {
+    const manifest = path.join(gamePath, 'Mods', `${mod.id}.manifest`);
+    const transferData = mod.files.map(f => { return {sourcePath: path.join(gamePath, 'data', f), destinationPath: path.join(installPath, vortexId, f), op: fs.renameAsync} });
 
-    return util.copyRecursive(sourcePath, destinationPath);
+    return fs.ensureDirAsync(path.join(installPath, vortexId))
+        .then(() => {
+            Promise.all(transferData.map(t => {
+                return t.op(t.sourcePath, t.destinationPath);
+            })).then(() => fs.removeAsync(manifest));
+        });
 }
 
 function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
@@ -55,11 +59,13 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
         installationPath: vortexId,
         attributes: {
             name: mod.name,
-            author: 'Bethesda.net',
+            author: mod.author,
             installTime: new Date(),
-            version: '1.0.0',
+            version: mod.version,
+            description: mod.description,
+            pictureUrl: mod.pictureUrl,
             notes: 'Imported from Bethesda.net',
-            bethesdaNetId: mod.id
+            bethesdaNetId: parseInt(mod.id)
         }
     };
     return vortexMod;
