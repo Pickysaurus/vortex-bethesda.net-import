@@ -4,7 +4,7 @@ import { connect } from 'react-redux';
 import * as path from 'path'; 
 import * as React from 'react';
 import * as Redux from 'redux';
-import { Alert, Button, ProgressBar, Col, Row } from 'react-bootstrap';
+import { Alert, Button, ProgressBar, Checkbox } from 'react-bootstrap';
 
 import getBethesdaNetModData from '../util/bethesdaImportUtil';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
@@ -36,6 +36,9 @@ interface IComponentState {
     importEnabled: { [id: string]: boolean };
     bethesdaModManifestPath?: string;
     bethesdaCCManifestPath?: string;
+    importCC: boolean;
+    ccCount: number;
+    createArchives: boolean;
     gamePath?: string,
     importPath?: string;
     progress?: { mod: string, perc: number };
@@ -60,6 +63,9 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             failedImports: [],
             counter: 0,
             modsToImport: {},
+            importCC: false,
+            createArchives: false,
+            ccCount: 0
         });
 
         this.mActions = this.genActions();
@@ -86,48 +92,69 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         this.nextState.bethesdaCCManifestPath = path.join(gamePath, 'Creations');
 
         // See if we have any mods installed by changing the manifests.
-        return fs.readdirAsync(path.join(gamePath, 'Mods'))
-        .then(mainfests => {
-            if (!mainfests.length) this.nextState.error = (
-                <span>
-                    <h3>{t('No mods detected')}</h3>
-                    {t('You do not appear to have any mods from Bethesda.net installed.')}
-                </span>
-            );
-            
-            return Promise.resolve();
-        })
-        .catch(err => {
-            if (err.code === 'ENOENT') {
-                // The Mods folder doesn't exist.
-                this.nextState.error = (
+        return fs.readdirAsync(path.join(gamePath, 'Creations'))
+        .catch(() => null)
+        .then((ccContent) => {
+            this.nextState.ccCount = ccContent.length;
+            fs.readdirAsync(path.join(gamePath, 'Mods'))
+            .then(mainfests => {
+                const total = mainfests.concat(ccContent);
+                if (!total.length) this.nextState.error = (
                     <span>
                         <h3>{t('No mods detected')}</h3>
                         {t('You do not appear to have any mods from Bethesda.net installed.')}
                     </span>
-                )
-            }
-            else {
-                // Some other error.
-                this.nextState.error = (
-                    <span>
-                        <h3>{t('An unknown error occured')}</h3>
-                        {t('The following error occurred while attempting to locate the Bethesda.net mod manifests.')}
-                        {err.code} - {err.message}
-                    </span>
-                )
-            }
+                );
+                
+                return Promise.resolve();
+            })
+            .catch(err => {
+                if (err.code === 'ENOENT') {
+                    // The Mods folder doesn't exist.
+                    this.nextState.error = (
+                        <span>
+                            <h3>{t('No mods detected')}</h3>
+                            {t('You do not appear to have any mods from Bethesda.net installed.')}
+                        </span>
+                    )
+                }
+                else {
+                    // Some other error.
+                    this.nextState.error = (
+                        <span>
+                            <h3>{t('An unknown error occured')}</h3>
+                            {t('The following error occurred while attempting to locate the Bethesda.net mod manifests.')}
+                            {err.code} - {err.message}
+                        </span>
+                    )
+                }
+            });
         });
     }
 
     private setup(): Promise<any> {
         // Tasks to perform before loading the setup step.
-        const { bethesdaCCManifestPath, bethesdaModManifestPath } = this.state;
+        const { bethesdaCCManifestPath, bethesdaModManifestPath, importCC } = this.state;
         const { mods, t } = this.props;
 
-        return getBethesdaNetModData(bethesdaModManifestPath)
-            .then((bethNetMods : IBethesdaNetEntries[]) => this.nextState.modsToImport = convertModArray(bethNetMods, mods))
+        return getBethesdaNetModData(bethesdaModManifestPath, false)
+        .catch(err => null)
+        .then((bnMods :IBethesdaNetEntries[]) => {
+            if (!importCC) {
+                this.nextState.modsToImport = convertModArray(bnMods, mods); 
+                return Promise.resolve();
+            }
+            getBethesdaNetModData(bethesdaCCManifestPath, true)
+            .then((ccMods: IBethesdaNetEntries[]) => {
+                const allMods = bnMods.concat(ccMods);
+                this.nextState.modsToImport = convertModArray(allMods, mods);
+
+            })
             .catch(err => {
+                if (bnMods.length) {
+                    this.nextState.modsToImport = convertModArray(bnMods, mods);
+                    return Promise.resolve();
+                };
                 this.nextState.error = (
                     <span>
                         <h3>{t('An unknown error occured')}</h3>
@@ -136,7 +163,8 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     </span>
                 );
                 Promise.resolve();
-            });
+            })
+        });
     }
 
     private startImport(): Promise<void> {
@@ -177,7 +205,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         const canCancel = ['start', 'setup'].indexOf(importStep) !== -1;
 
         return(
-            <Modal id='workshop-import-dialog' show={visible} onHide={this.nop}>
+            <Modal id='bethesda-import-dialog' show={visible} onHide={this.nop}>
                 <Modal.Header>
                     <h2>{t('Bethesda.net Import Tool')}</h2>
                     {this.renderSteps(importStep)}
@@ -288,7 +316,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     private renderWait(): JSX.Element {
         // Holding page if we're waiting for a Promise.
         return (
-            <div className='workshop-wait-container'>
+            <div className='bethesda-wait-container'>
                 <Spinner className='page-wait-spinner' />
             </div>
         )
@@ -297,12 +325,13 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     private renderStart(): JSX.Element {
         // Start step. 
         const { t } = this.props;
+        const { importCC, createArchives, ccCount } = this.state;
 
         return(
-            <span className='workshop-start'>
+            <span className='bethesda-start'>
                 <img src={`file://${__dirname}/beth-to-vortex.png`} />
                 <h3>{t('Bring your Bethesda.net mods to Vortex')}</h3>
-                {t('This tool will allow you to import mods installed through Bethesda.net into Vortex.')}
+                <p>{t('This tool will allow you to import mods installed through Bethesda.net into Vortex.')}</p>
                 <div>
                     {t('Before you continue, please be aware of the following:')}
                     <ul>
@@ -311,6 +340,25 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                         <li>{t('You will not receive any further updates for imported mods.')}</li>
                     </ul>
                 </div>
+                <h4>{t('Options')}</h4>
+                <Checkbox 
+                    id='includeCC' 
+                    checked={importCC} 
+                    title={t('Import mini-DLCs purchased from the Creation Club store.')}
+                    onChange={() => this.nextState.importCC = !importCC}
+                    disabled={ccCount === 0}
+                >
+                    {t('Include Creation Club Content')}
+                </Checkbox>
+                <Checkbox 
+                    id='archives'
+                    checked={createArchives} 
+                    title={t('Create archives of imported mods so they can be reinstalled.')} 
+                    onChange={() => this.nextState.createArchives = !createArchives}
+                    disabled
+                >
+                    {t('Create Archives')}
+                </Checkbox>
             </span>
         )
     }
@@ -322,7 +370,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
 
         const perc = Math.floor(progress.perc * 100);
         return(
-            <div className='workshop-import-container'>
+            <div className='bethesda-import-container'>
                 <span>{t('Currently importing: {{mod}}', {replace: { mod: progress.mod } })}</span>
                 <ProgressBar now={perc} label={`${perc}%`} />
             </div>
@@ -337,7 +385,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         return(
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
                 <Table 
-                    tableId='workshop-mod-imports'
+                    tableId='bethesda-mod-imports'
                     data={modsToImport}
                     dataId={counter}
                     actions={this.mActions}
@@ -352,7 +400,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         const { failedImports } = this.state;
 
         return(
-            <div className='workshop-import-container'>
+            <div className='bethesda-import-container'>
                 {failedImports.length === 0
                 ? (<span className='import-success'>
                     <Icon name='feedback-success' />{t('Import successful')}

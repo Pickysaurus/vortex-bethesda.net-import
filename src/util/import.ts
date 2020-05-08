@@ -40,7 +40,8 @@ function importMods(t: Function,
 }
 
 function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: string, vortexId: string): Promise<any> {
-    const manifest = path.join(gamePath, 'Mods', `${mod.id}.manifest`);
+    const modFolder = mod.creationClub ? 'Creations' : 'Mods';
+    const manifest = path.join(gamePath, modFolder, `${mod.id}.manifest`);
     const transferData = mod.files.map(f => { return {sourcePath: path.join(gamePath, 'data', f), destinationPath: path.join(installPath, vortexId, f), op: fs.renameAsync} });
 
     return fs.ensureDirAsync(path.join(installPath, vortexId))
@@ -48,7 +49,8 @@ function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: st
             Promise.all(transferData.map(t => {
                 return t.op(t.sourcePath, t.destinationPath);
             })).then(() => fs.removeAsync(manifest));
-        });
+        })
+        .catch(err => Promise.reject(err));
 }
 
 function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {

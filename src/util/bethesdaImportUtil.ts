@@ -3,7 +3,7 @@ import * as path from 'path';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 import Promise from 'bluebird';
 import * as https from 'https';
-const filePathMatcher = /data\/([\w\-\/ ]+.[a-zA-Z0-9]{3})/g;
+const filePathMatcher = /data\/([\w\-\/ \(\)]+.[a-zA-Z0-9]{3})/g;
 
 // var https = require('follow-redirects').https;
 
@@ -16,7 +16,7 @@ const options = {
   'maxRedirects': 20
 };
 
-export function getBethesdaNetModData(manifestPath: string): Promise<IBethesdaNetEntries> {
+export function getBethesdaNetModData(manifestPath: string, creationClub: boolean): Promise<IBethesdaNetEntries> {
     // Get an object containing all installed Bethesda.net mods.
     return fs.readdirAsync(manifestPath)
     .then(
@@ -25,7 +25,7 @@ export function getBethesdaNetModData(manifestPath: string): Promise<IBethesdaNe
                 return new Promise ((resolve, reject) => {
                     fs.readFileAsync(path.join(manifestPath, manifest))
                     .then(
-                        (data : string) => resolve(parseManifest(manifest, data.toString()))
+                        (data : string) => resolve(parseManifest(manifest, data.toString(), creationClub))
                     )
                 });
             }))
@@ -33,11 +33,13 @@ export function getBethesdaNetModData(manifestPath: string): Promise<IBethesdaNe
     .catch(err => Promise.reject(err));
 }
 
-function parseManifest(manifest: string, data : string) : IBethesdaNetEntries {
+function parseManifest(manifest: string, data : string, cc: boolean) : IBethesdaNetEntries {
     // Filter the file paths out of the gumf that is the manifest file.
     const files = data.match(filePathMatcher).map(f => f.substr(5, f.length));
     // Get the ID from the manifest name.
-    const id = path.basename(manifest, '.manifest');
+    const idandVersion = path.basename(manifest, '.manifest').split('-');
+    const id = idandVersion[0];
+    const version = idandVersion[1]
     // For now, just cut the extension off the primary file to get the game.
     const filename = files[0].substr(0, files[0].lastIndexOf('.'));
     // Capitalised the first letter.
@@ -53,8 +55,9 @@ function parseManifest(manifest: string, data : string) : IBethesdaNetEntries {
             files,
             author: data.username || 'Bethesda.net',
             description: data.description,
-            pictureUrl: data.media.preview.large.url,
-            version: data.version || '1.0.0',
+            pictureUrl: data.preview_file_url,
+            version: data.version || version,
+            creationClub: data.cc_mod || cc
         };
 
         return mod;
