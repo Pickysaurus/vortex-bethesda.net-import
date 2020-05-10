@@ -13,7 +13,8 @@ const options = {
   'path': '/mods/ugc-workshop/content/get?content_id=',
   'headers': {
   },
-  'maxRedirects': 20
+  'maxRedirects': 20,
+  'timeout': 10000,
 };
 
 export function getBethesdaNetModData(manifestPath: string, creationClub: boolean): Promise<IBethesdaNetEntries> {
@@ -51,13 +52,13 @@ function parseManifest(manifest: string, data : string, cc: boolean) : IBethesda
     .then((data) => {
         const mod : IBethesdaNetEntries = { 
             id, 
-            name: data.name || name, 
+            name: data ? data.name || name : name, 
             files,
-            author: data.username || 'Bethesda.net',
-            description: data.description,
-            pictureUrl: data.preview_file_url,
-            version: data.version || version,
-            creationClub: data.cc_mod || cc,
+            author: data ? data.username || 'Bethesda.net' : 'Bethesda.net',
+            description: data ? data.description : '',
+            pictureUrl: data ? data.preview_file_url : '',
+            version: data? data.version || version : version,
+            creationClub: data ? data.cc_mod : cc,
             manifest
         };
 
@@ -83,8 +84,14 @@ function getApiData(id: number): Promise<void> {
 
             res.on('end', () => {
                 let body = Buffer.concat(chunks);
-                const data = JSON.parse(body.toString()).platform.response.content;
-                resolve(data);
+                try {
+                    const data = JSON.parse(body.toString());
+                    const details = data.platform.response.content;
+                    resolve(details);
+                }
+                catch(err) {
+                    resolve();
+                }
             });
 
             res.on('error', (err) => {
@@ -92,6 +99,10 @@ function getApiData(id: number): Promise<void> {
                 resolve();
             });
         });
+
+        req.on('timeout', () => resolve());
+
+        req.on('error', (err: Error) => resolve());
 
         req.end();
     });

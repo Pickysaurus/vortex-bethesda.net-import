@@ -1,4 +1,4 @@
-import { ComponentEx, selectors, types, util, Modal, Steps, Spinner, Table, ITableRowAction, TableTextFilter, Icon, fs, tooltip } from 'vortex-api';
+import { ComponentEx, selectors, types, util, Modal, Steps, Spinner, Table, ITableRowAction, Icon, fs, tooltip } from 'vortex-api';
 import { withTranslation } from 'react-i18next';
 import { connect } from 'react-redux';
 import * as path from 'path'; 
@@ -329,6 +329,8 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         // Start step. 
         const { t } = this.props;
         const { importCC, createArchives, ccCount } = this.state;
+        const state = this.context.api.store.getState();
+        const networkState = state.session.base.networkConnected;
 
         return(
             <span className='bethesda-start'>
@@ -338,28 +340,29 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 <div>
                     {t('Before you continue, please be aware of the following:')}
                     <ul>
-                        <li>{t('Bethesda.net mods do not include much data, so the mod information will be incomplete.')}</li>
+                        <li>{t('Vortex will attempt to important some basic mod information for Bethesda.net but this data may be incomplete.')}</li>
                         <li>{t('Once imported, the mods will be removed from Bethesda.net but may still appear in "My Library".')}</li>
-                        <li>{t('You will not receive any further updates for imported mods.')}</li>
+                        <li>{t('Imported mods will not be updated when a new version is posted on Bethesda.net.')}</li>
+                        {!networkState ? (<li><b style={{color:'var(--brand-warning)'}}>{t('You are offline! No data will be imported from Bethesda.net')}</b></li>) : ''}
                     </ul>
                 </div>
                 <h4>{t('Options')}</h4>
                 <Checkbox 
+                    id='archives'
+                    checked={createArchives} 
+                    title={t('Vortex will create compressed (zipped) archives of imported mods in the downloads folder, so they can be reinstalled.')} 
+                    onChange={() => this.nextState.createArchives = !createArchives}
+                >
+                    {t('Create archives for imported mods')}
+                </Checkbox>
+                <Checkbox 
                     id='includeCC' 
                     checked={importCC} 
-                    title={t('Import mini-DLCs purchased from the Creation Club store.')}
+                    title={t('Import mini-DLCs purchased from the Creation Club store as mods.')}
                     onChange={() => this.nextState.importCC = !importCC}
                     disabled={ccCount === 0}
                 >
-                    {t('Include Creation Club Content')}
-                </Checkbox>
-                <Checkbox 
-                    id='archives'
-                    checked={createArchives} 
-                    title={t('Create archives of imported mods so they can be reinstalled.')} 
-                    onChange={() => this.nextState.createArchives = !createArchives}
-                >
-                    {t('Create Archives')}
+                    {t('Include Creation Club content')}
                 </Checkbox>
             </span>
         )
