@@ -50,8 +50,13 @@
     }
 }
 
-.import-mods-to-disable {
-    min-height: 10vh;
-    max-height: 20vh;
-    overflow-y: scroll;
+.import-warning {
+    text-align: center;
+    color: var(--brand-warning);
+    font-size: 1.75rem;
+    display: block;
+}
+
+.import-warning-group {
+    margin: 8px 0;
 }

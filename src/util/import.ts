@@ -4,30 +4,42 @@ import * as Redux from 'redux';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 
 import { actions, selectors, types, log, util, fs } from 'vortex-api';
+import { generate as shortid } from 'shortid';
+import { genHash } from 'modmeta-db';
 
 
 function importMods(t: Function,
                     store: Redux.Store<types.IState>,
                     gamePath: string,
                     mods: IBethesdaNetEntries[],
+                    createArchives: boolean,
                     progress: (mod: string, idx: number) => void): Promise<string[]> {
     
     const gameId = selectors.activeGameId(store.getState());
-    const errors: string[] = [];
+    const errors = [];
 
     log('debug', 'Bethesda.net import starting');
     const installPath = selectors.installPath(store.getState());
-    return Promise.mapSeries(mods, (mod, idx, len) => {
+    const downloadPath = selectors.downloadPath(store.getState());
+    return Promise.mapSeries(mods, (mod: IBethesdaNetEntries, idx: number, len: number) => {
         log('debug', 'transferring', mod);
         const vortexId = `bethesdanet-${mod.id}`;
-        progress(mod.title, idx/len);
+        progress(mod.name, idx/len);
         return transferMod(mod, gamePath, installPath, vortexId)
-            .then(() => Promise.resolve(''))
+            .then(() => {
+                //Create an archive for this mod.
+                if (!createArchives) Promise.resolve();
+                createArchive(installPath, downloadPath, mod, vortexId, store)
+                .then(() => Promise.resolve())
+                .catch(err => errors.push(err));
+            })
             .catch(err => {
                 log('debug', 'Failed to import', err);
-                errors.push(mod.title);
+                errors.push({name: mod.name, errors: err});
             })
                 .then(() => {
+                    if (errors.find(e => e.name === mod.name)) return Promise.resolve();
+                    // Create DB entry for Vortex.
                     store.dispatch(actions.addMod(gameId, toVortexMod(mod, vortexId)));
                     return Promise.resolve();
                 })
@@ -41,16 +53,55 @@ function importMods(t: Function,
 
 function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: string, vortexId: string): Promise<any> {
     const modFolder = mod.creationClub ? 'Creations' : 'Mods';
-    const manifest = path.join(gamePath, modFolder, `${mod.id}.manifest`);
-    const transferData = mod.files.map(f => { return {sourcePath: path.join(gamePath, 'data', f), destinationPath: path.join(installPath, vortexId, f), op: fs.renameAsync} });
+    const manifest = path.join(gamePath, modFolder, mod.manifest);
+    const stagingPath = path.join(installPath, vortexId);
+    const transferData = mod.files.map(f => { return {sourcePath: path.join(gamePath, 'data', f), destinationPath: path.join(stagingPath, f)} });
 
-    return fs.ensureDirAsync(path.join(installPath, vortexId))
+    let errors = [];
+
+    // Check all the file exist in the data folder (and aren't staged files)
+    return Promise.all(transferData.map(t => {
+        return fs.statAsync(t.sourcePath).catch((err: Error) => errors.push(err));
+    }))
+    // Create destination folder
+    .then(() => {
+        if (errors.length) return Promise.reject(errors);
+        return fs.ensureDirAsync(stagingPath).then().catch((err: Error) => errors.push(err))
+        // Move files over
         .then(() => {
-            Promise.all(transferData.map(t => {
-                return t.op(t.sourcePath, t.destinationPath);
-            })).then(() => fs.removeAsync(manifest));
-        })
-        .catch(err => Promise.reject(err));
+            if (errors.length) return Promise.reject(errors);
+            return Promise.all(transferData.map(t => {
+                return fs.renameAsync(t.sourcePath, t.destinationPath).catch((err: Error) => Promise.reject(err));
+            })).catch((err: Error) => Promise.reject(err))
+            // Delete Manifest
+            .then(() => fs.removeAsync(manifest));
+        });
+    })
+    //Catch from exist check.
+    .catch((err: Error) => {
+        return Promise.reject(err);
+    });
+}
+
+function createArchive(installPath: string, downloadPath: string, mod: IBethesdaNetEntries, vortexId: string, store: Redux.Store<types.IState>): Promise<any> {
+    log('debug', 'Creating Archive', vortexId);
+    // We need to create the 7z archive, then get it's MD5 and ID to put into the mod object.
+    const sevenZip = new util.SevenZip();
+    const archivePath = path.join(downloadPath, `${vortexId}-${mod.version}.7z`);
+    const filesToPack : string[] = mod.files.map(f => path.join(installPath, vortexId, f));
+    const gameId = selectors.activeGameId(store.getState());
+    mod.archiveId = shortid();
+
+    sevenZip.add(archivePath, filesToPack).then(() => {
+        genHash(archivePath).then((hash) => {
+            mod.md5hash = hash.md5sum;
+            fs.statAsync(archivePath)
+            .then((stats) => {
+                store.dispatch(actions.addLocalDownload(mod.archiveId, gameId, archivePath,stats.size));
+                Promise.resolve();
+            });
+        });
+    });
 }
 
 function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
@@ -59,6 +110,7 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
         state: 'installed',
         type: '',
         installationPath: vortexId,
+        archiveId : mod.archiveId,
         attributes: {
             name: mod.name,
             author: mod.author,
@@ -67,7 +119,8 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
             description: mod.description,
             pictureUrl: mod.pictureUrl,
             notes: 'Imported from Bethesda.net',
-            bethesdaNetId: parseInt(mod.id)
+            bethesdaNetId: mod.id,
+            fileMD5: mod.md5hash
         }
     };
     return vortexMod;

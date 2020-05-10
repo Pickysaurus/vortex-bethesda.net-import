@@ -42,7 +42,7 @@ interface IComponentState {
     gamePath?: string,
     importPath?: string;
     progress?: { mod: string, perc: number };
-    failedImports: string[];
+    failedImports: any;
     modsToImport: { [id: string]: IBethesdaNetEntries };
     counter: number;
   }
@@ -75,6 +75,8 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     public UNSAFE_componentWillReceiveProps(newProps: IProps) {
         if (!this.props.visible && newProps.visible) {
             this.start();
+            this.nextState.importCC = false;
+            this.nextState.modsToImport = {};
         }
     }
 
@@ -169,14 +171,14 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
 
     private startImport(): Promise<void> {
         const { t } = this.props;
-        const { modsToImport, bethesdaModManifestPath, gamePath } = this.state;
+        const { modsToImport, gamePath, createArchives } = this.state;
 
         const modList = modsToImport ? Object.keys(modsToImport).map(id => modsToImport[id]): [];
         const enabledMods = modList.filter(mod => this.isModEnabled(mod));
 
         // Might want to check we can write to the folder(s) here?
 
-        importMods(t, this.context.api.store, gamePath, enabledMods, (mod: string, perc: number) => {
+        importMods(t, this.context.api.store, gamePath, enabledMods, createArchives, (mod: string, perc: number) => {
             this.nextState.progress = { mod, perc };
         })
         .then(errors => {
@@ -233,7 +235,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     private previousDisabled():boolean {
         // Can we use the previous button?
         const {error, importStep} = this.state;
-        return (error !== undefined) || (importStep === 'wait') || (importStep === 'start');
+        return (error !== undefined) || (['wait', 'start', 'review'].includes(importStep));
     }
 
     private next = (): void => {
@@ -403,14 +405,38 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             <div className='bethesda-import-container'>
                 {failedImports.length === 0
                 ? (<span className='import-success'>
-                    <Icon name='feedback-success' />{t('Import successful')}
-                </span>)
-                : (<span className='import-errors'>
-                    <Icon name='feedback-error' />{t('Import unsuccessful')}
-                </span>)
+                    <Icon name='feedback-success' />{t('Import completed successful')}
+                    </span>)
+                : (<span>
+                    <span className='import-warning'>
+                        <Icon name='feedback-warning' />{t('Import completed with errors')}
+                    </span>
+                    <span className='import-warning-group'>
+                        {t('The import process encountered the following errors. You should fix any errors before retrying. Most issues can be solved by reinstalling the mods through Bethesda.net')}
+                    </span>
+                    {this.renderErrors()}
+                    </span>)
                 }
             </div>
         );
+    }
+
+    private renderErrors(): JSX.Element {
+        const { failedImports } = this.state;
+        return(
+            <span>
+                {failedImports.map(f => {
+                    return (
+                    <div key={`errors-${f.name}`} className='import-warning-group'>
+                        <b>Errors importing "{f.name}"</b>
+                        <ul>
+                    {f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>))}
+                        </ul>
+                    </div>)
+                })}
+            </span>
+        );
+
     }
 
     private isModEnabled(mod: IBethesdaNetEntries): boolean {
@@ -474,7 +500,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 placement: 'both',
                 isToggleable: true,
                 isSortable: true,
-                filter: new TableTextFilter(true),
+                // filter: new TableTextFilter(true),
                 edit: {},
                 sortFunc: (lhs: string, rhs: string, locale: string): number => {
                     return lhs.localeCompare(rhs, locale, { sensitivity: 'base' });
@@ -489,7 +515,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 placement: 'both',
                 isToggleable: true,
                 isSortable: true,
-                isDefaultVisible: true,
+                isDefaultVisible: false,
                 edit: {}
             },
             {
@@ -530,7 +556,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 customRenderer: (mod: IBethesdaNetEntries, detail: boolean) => {
                     return mod.isAlreadyManaged ? (
                         <tooltip.Icon 
-                            id={`already-managed=${mod.id}`}
+                            id={`already-managed-${mod.id}`}
                             tooltip={'This mod has already been imported. \nImporting it again will overwrite the current entry.'}
                             name='feedback-warning'
                         />
@@ -541,6 +567,18 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 isToggleable: true,
                 isSortable: true,
                 edit: {}
+            },
+            {
+                id: 'modType',
+                name: 'Type',
+                description: 'Is this a CC mod?',
+                icon: 'level-up',
+                calc: (mod: IBethesdaNetEntries) => mod.creationClub ? 'Creation Club Content' : 'Bethesda.net Mod',
+                placement: 'detail',
+                isToggleable: true,
+                isSortable: true,
+                edit: {},
+                condition: () => this.state.importCC
             },
             {
                 id: 'files',

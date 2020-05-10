@@ -57,7 +57,8 @@ function parseManifest(manifest: string, data : string, cc: boolean) : IBethesda
             description: data.description,
             pictureUrl: data.preview_file_url,
             version: data.version || version,
-            creationClub: data.cc_mod || cc
+            creationClub: data.cc_mod || cc,
+            manifest
         };
 
         return mod;
