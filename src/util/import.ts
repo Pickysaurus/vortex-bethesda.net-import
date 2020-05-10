@@ -29,9 +29,9 @@ function importMods(t: Function,
             .then(() => {
                 //Create an archive for this mod.
                 if (!createArchives) Promise.resolve();
-                createArchive(installPath, downloadPath, mod, vortexId, store)
+                return createArchive(installPath, downloadPath, mod, vortexId, store)
                 .then(() => Promise.resolve())
-                .catch(err => errors.push(err));
+                .catch(err => errors.push({name: mod.name, errors:err}));
             })
             .catch(err => {
                 log('debug', 'Failed to import', err);
@@ -87,21 +87,31 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
     log('debug', 'Creating Archive', vortexId);
     // We need to create the 7z archive, then get it's MD5 and ID to put into the mod object.
     const sevenZip = new util.SevenZip();
-    const archivePath = path.join(downloadPath, `${vortexId}-${mod.version}.7z`);
-    const filesToPack : string[] = mod.files.map(f => path.join(installPath, vortexId, f));
     const gameId = selectors.activeGameId(store.getState());
+    const archiveName = `${mod.name}-${mod.id}-${mod.version}`
+    const archivePath = path.join(downloadPath, `${archiveName}.7z`);
+    const tempPath = path.join(path.dirname(path.dirname(downloadPath)), `${archiveName}.7z`);
+    const filesToPack : string[] = mod.files.map(f => path.join(installPath, vortexId, f));
     mod.archiveId = shortid();
 
-    sevenZip.add(archivePath, filesToPack).then(() => {
-        genHash(archivePath).then((hash) => {
+    return sevenZip.add(tempPath, filesToPack)
+    .then(() => {
+        return genHash(tempPath)
+        .then((hash) => {
             mod.md5hash = hash.md5sum;
-            fs.statAsync(archivePath)
+            return fs.statAsync(tempPath)
             .then((stats) => {
-                store.dispatch(actions.addLocalDownload(mod.archiveId, gameId, archivePath,stats.size));
-                Promise.resolve();
+                store.dispatch(actions.addLocalDownload(mod.archiveId, gameId, path.basename(archivePath),stats.size));
+                store.dispatch(actions.setDownloadModInfo(mod.archiveId, 'name', mod.name));
+                store.dispatch(actions.setDownloadModInfo(mod.archiveId, 'version', mod.version));
+                store.dispatch(actions.setDownloadModInfo(mod.archiveId, 'game', gameId));
+                return fs.renameAsync(tempPath, archivePath)
+                .then(() => {
+                    return Promise.resolve()
+                });
             });
         });
-    });
+    }).catch(err => Promise.reject([err]));
 }
 
 function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {

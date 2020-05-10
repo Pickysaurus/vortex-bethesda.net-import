@@ -64,7 +64,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             counter: 0,
             modsToImport: {},
             importCC: false,
-            createArchives: false,
+            createArchives: true,
             ccCount: 0
         });
 
@@ -76,6 +76,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         if (!this.props.visible && newProps.visible) {
             this.start();
             this.nextState.importCC = false;
+            this.nextState.createArchives = true;
             this.nextState.modsToImport = {};
         }
     }
@@ -357,7 +358,6 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     checked={createArchives} 
                     title={t('Create archives of imported mods so they can be reinstalled.')} 
                     onChange={() => this.nextState.createArchives = !createArchives}
-                    disabled
                 >
                     {t('Create Archives')}
                 </Checkbox>
@@ -430,7 +430,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     <div key={`errors-${f.name}`} className='import-warning-group'>
                         <b>Errors importing "{f.name}"</b>
                         <ul>
-                    {f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>))}
+                    {f.errors.length ? f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>)) : (<li key={`errors-${f.name}`}>{f.errors.message}</li>)}
                         </ul>
                     </div>)
                 })}
