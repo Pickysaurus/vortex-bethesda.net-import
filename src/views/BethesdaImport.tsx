@@ -430,7 +430,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     <div key={`errors-${f.name}`} className='import-warning-group'>
                         <b>Errors importing "{f.name}"</b>
                         <ul>
-                    {f.errors.length ? f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>)) : (<li key={`errors-${f.name}`}>{f.errors.message}</li>)}
+                        {f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>))}
                         </ul>
                     </div>)
                 })}
