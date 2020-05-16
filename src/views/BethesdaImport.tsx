@@ -38,6 +38,7 @@ interface IComponentState {
     bethesdaCCManifestPath?: string;
     importCC: boolean;
     ccCount: number;
+    modCount: number;
     createArchives: boolean;
     gamePath?: string,
     importPath?: string;
@@ -65,7 +66,8 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             modsToImport: {},
             importCC: false,
             createArchives: true,
-            ccCount: 0
+            ccCount: 0,
+            modCount: 0
         });
 
         this.mActions = this.genActions();
@@ -87,6 +89,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         const { discovered, gameId } = this.props;
         this.nextState.importStep = 'start';
         this.nextState.error = undefined;
+        this.nextState.modsToImport = {};
 
         const gamePath : string = discovered[gameId].path;
         this.nextState.gamePath = gamePath;
@@ -98,10 +101,11 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         return fs.readdirAsync(path.join(gamePath, 'Creations'))
         .catch(() => null)
         .then((ccContent) => {
-            this.nextState.ccCount = ccContent.length;
+            this.nextState.ccCount = ccContent ? ccContent.length : 0;
             fs.readdirAsync(path.join(gamePath, 'Mods'))
-            .then(mainfests => {
-                const total = mainfests.concat(ccContent);
+            .then(manifests => {
+                const total = ccContent ? manifests.concat(ccContent) : manifests;
+                this.nextState.modCount = manifests ? manifests.length : 0; 
                 if (!total.length) this.nextState.error = (
                     <span>
                         <h3>{t('No mods detected')}</h3>
@@ -113,6 +117,8 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             })
             .catch(err => {
                 if (err.code === 'ENOENT') {
+                    // We can still import any detected CC Content if the mods folder doesn't exist.
+                    if (this.state.ccCount) return Promise.resolve();
                     // The Mods folder doesn't exist.
                     this.nextState.error = (
                         <span>
@@ -147,9 +153,9 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 this.nextState.modsToImport = convertModArray(bnMods, mods); 
                 return Promise.resolve();
             }
-            getBethesdaNetModData(bethesdaCCManifestPath, true)
+            return getBethesdaNetModData(bethesdaCCManifestPath, true)
             .then((ccMods: IBethesdaNetEntries[]) => {
-                const allMods = bnMods.concat(ccMods);
+                const allMods = bnMods ? bnMods.concat(ccMods) : ccMods;
                 this.nextState.modsToImport = convertModArray(allMods, mods);
 
             })
@@ -227,10 +233,11 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
 
     private nextDisabled():boolean {
         // Can we use the next button?
-        const {error, importStep, importEnabled, bethesdaModManifestPath} = this.state;
+        const {error, importStep, importEnabled, importCC, ccCount, modCount} = this.state;
+        const startModsCount = importCC ? ccCount + modCount : modCount;
         return (error !== undefined) || (importStep === 'wait') 
-        || ((importStep === 'start') && (!bethesdaModManifestPath))
-        || ((importStep === 'setup') && (Object.keys(importEnabled).map(key => importEnabled[key] === true).length) === 0);
+        || ((importStep === 'start') && (!startModsCount))
+        || ((importStep === 'setup') && (Object.keys(importEnabled).filter(key => importEnabled[key] === true).length) === 0);
     }
 
     private previousDisabled():boolean {
@@ -328,7 +335,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     private renderStart(): JSX.Element {
         // Start step. 
         const { t } = this.props;
-        const { importCC, createArchives, ccCount } = this.state;
+        const { importCC, createArchives, ccCount, modCount } = this.state;
         const state = this.context.api.store.getState();
         const networkState = state.session.base.networkConnected;
 
@@ -337,6 +344,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 <img src={`file://${__dirname}/beth-to-vortex.png`} />
                 <h3>{t('Bring your Bethesda.net mods to Vortex')}</h3>
                 <p>{t('This tool will allow you to import mods installed through Bethesda.net into Vortex.')}</p>
+                <p>{t('Vortex has detected {{mods}} mods and {{cc}} Creation Club DLCs.', {replace: {mods: modCount, cc: ccCount}})}</p>
                 <div>
                     {t('Before you continue, please be aware of the following:')}
                     <ul>

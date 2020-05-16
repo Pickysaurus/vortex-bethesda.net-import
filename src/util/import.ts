@@ -78,7 +78,7 @@ function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: st
         .then(() => {
             if (errors.length) return Promise.reject(errors);
             return Promise.all(transferData.map(t => {
-                return fs.renameAsync(t.sourcePath, t.destinationPath).catch((err: Error) => Promise.reject(err));
+                return fs.moveAsync(t.sourcePath, t.destinationPath).catch((err: Error) => Promise.reject(err));
             })).catch((err: Error) => Promise.reject(err))
             // Delete the manifest to ensure Bethesda.net will not manage this file anymore. 
             .then(() => fs.removeAsync(manifest));
@@ -99,7 +99,7 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
     const archiveName = `${mod.name}-${mod.id}-${mod.version}`
     const archivePath = path.join(downloadPath, `${archiveName}.7z`);
     // NOTE: A temporary path was required as Vortex would end up with duplicate entires while creating the archives. 
-    const tempPath = path.join(path.dirname(path.dirname(downloadPath)), `${archiveName}.7z`);
+    const tempPath = path.join(installPath, `${archiveName}.7z`);
     // A list of files we want to copy over. 
     const filesToPack : string[] = mod.files.map(f => path.join(installPath, vortexId, f));
     mod.archiveId = shortid();
@@ -120,7 +120,7 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
                 store.dispatch(actions.setDownloadModInfo(mod.archiveId, 'version', mod.version));
                 store.dispatch(actions.setDownloadModInfo(mod.archiveId, 'game', gameId));
                 // Move the archive from the temp folder to the download folder. 
-                return fs.renameAsync(tempPath, archivePath)
+                return fs.moveAsync(tempPath, archivePath)
                 .then(() => {
                     // Resolve the promise! 
                     return Promise.resolve()
@@ -143,6 +143,7 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
             author: mod.author,
             installTime: new Date(),
             version: mod.version,
+            shortDescription: mod.description ? mod.description.length >= 175 ? `${mod.description.substr(0, 175)}...` : mod.description : undefined,
             description: mod.description,
             pictureUrl: mod.pictureUrl,
             notes: 'Imported from Bethesda.net',
