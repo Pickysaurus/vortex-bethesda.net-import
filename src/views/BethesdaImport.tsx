@@ -416,7 +416,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             <div className='bethesda-import-container'>
                 {failedImports.length === 0
                 ? (<span className='import-success'>
-                    <Icon name='feedback-success' />{t('Import completed successful')}
+                    <Icon name='feedback-success' />{t('Import completed successfully')}
                     </span>)
                 : (<span>
                     <span className='import-warning'>
