@@ -5,13 +5,13 @@
 
     .modal-body img {
         max-width: 100%;
-        overflow: hidden auto;
     }
 
     .modal-body {
         height: 60vh;
         display: flex;
         flex-direction: column;
+        overflow: hidden auto;
     }
 
     h4 {
