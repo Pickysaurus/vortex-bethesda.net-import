@@ -22,6 +22,7 @@ export function getBethesdaNetModData(manifestPath: string, creationClub: boolea
     return fs.readdirAsync(manifestPath)
     .then(
         (manifests) => {
+            if (!manifests) return Promise.reject(`Error reading ${manifestPath}`);
             return Promise.all(manifests.map(manifest => {
                 return new Promise ((resolve, reject) => {
                     fs.readFileAsync(path.join(manifestPath, manifest))
@@ -36,7 +37,9 @@ export function getBethesdaNetModData(manifestPath: string, creationClub: boolea
 
 function parseManifest(manifest: string, data : string, cc: boolean) : IBethesdaNetEntries {
     // Filter the file paths out of the gumf that is the manifest file.
-    const files = data.match(filePathMatcher).map(f => f.substr(5, f.length));
+    const matches = data.match(filePathMatcher);
+    if (!matches) return Promise.reject(`Error matching files from manifest ${manifest}`);
+    const files = matches.map(f => f.substr(5, f.length));
     // Get the ID from the manifest name.
     const idandVersion = path.basename(manifest, '.manifest').split('-');
     const id = idandVersion[0];
@@ -64,12 +67,6 @@ function parseManifest(manifest: string, data : string, cc: boolean) : IBethesda
 
         return mod;
     });
-
-
-    // const mod : IBethesdaNetEntries = { id, name, files };
-
-    // return mod;
-
 }
 
 function getApiData(id: number): Promise<void> {

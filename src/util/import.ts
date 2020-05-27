@@ -62,7 +62,14 @@ function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: st
     const modFolder = mod.creationClub ? 'Creations' : 'Mods';
     const manifest = path.join(gamePath, modFolder, mod.manifest);
     const stagingPath = path.join(installPath, vortexId);
-    const transferData = mod.files.map(f => { return {sourcePath: path.join(gamePath, 'data', f), destinationPath: path.join(stagingPath, f)} });
+    const transferData = mod.files 
+    ? mod.files.map(f => { 
+        return {
+            sourcePath: path.join(gamePath, 'data', f), 
+            destinationPath: path.join(stagingPath, f)
+        }; 
+    }) 
+    : [];
 
     let errors = [];
 

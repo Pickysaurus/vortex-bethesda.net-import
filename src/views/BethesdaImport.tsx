@@ -623,18 +623,18 @@ function convertModArray(mods: IBethesdaNetEntries[], vortexMods: {[id: string] 
 
 function mapStateToProps(state: types.IState): IConnectedProps {
     const gameId = selectors.activeGameId(state);
-    const steamAppId = selectors.gameById(state, gameId).details.steamAppId;
+    const game = selectors.gameById(state, gameId);
+    const steamAppId = util.getSafe(game, ['details', 'steamAppId'], undefined);
     return {
       steamAppId,
       gameId,
-      discovered: state.settings.gameMode.discovered,
-      mods: state.persistent.mods[gameId],
+      discovered: util.getSafe(state, ['settings', 'gameMode', 'discovered'], {}),
+      mods: util.getSafe(state, ['persistent', 'mods', gameId], undefined),
     };
   }
   
   function mapDispatchToProps(dispatch: Redux.Dispatch<any>): IActionProps {
-    return {
-    };
+    return {};
   }
   
   export default withTranslation([ 'common' ])(
