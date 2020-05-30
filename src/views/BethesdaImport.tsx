@@ -439,7 +439,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                 {failedImports.map(f => {
                     return (
                     <div key={`errors-${f.name}`} className='import-warning-group'>
-                        <b>Errors importing "{f.name}"</b>
+                        <b>Errors importing "{f.name}" (v{f.version})</b>
                         <ul>
                         {f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>))}
                         </ul>
@@ -568,7 +568,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     return mod.isAlreadyManaged ? (
                         <tooltip.Icon 
                             id={`already-managed-${mod.id}`}
-                            tooltip={'This mod has already been imported. \nImporting it again will overwrite the current entry.'}
+                            tooltip={'This mod has already been imported. \nYou must uninstall it before importing again.'}
                             name='feedback-warning'
                         />
                     ) : null;
@@ -614,7 +614,7 @@ function convertModArray(mods: IBethesdaNetEntries[], vortexMods: {[id: string] 
     if (!mods || !mods.length) return mappedObject;
     mods.map(mod => {
         mappedObject[mod.id] = mod
-        if (!!vortexMods[`bethesdanet-${mod.id}`]) mappedObject[mod.id].isAlreadyManaged = true;
+        if (!!vortexMods[`bethesdanet-${mod.id}-${mod.version}`]) mappedObject[mod.id].isAlreadyManaged = true;
         return mod;
     });
     return mappedObject;
