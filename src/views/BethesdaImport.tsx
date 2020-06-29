@@ -433,6 +433,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     }
 
     private renderErrors(): JSX.Element {
+        const { t } = this.props;
         const { failedImports } = this.state;
         return(
             <span>
@@ -441,7 +442,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                     <div key={`errors-${f.name}`} className='import-warning-group'>
                         <b>Errors importing "{f.name}" (v{f.version})</b>
                         <ul>
-                        {f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>))}
+                        {f.errors ? f.errors.map(e => (<li key={`errors-${f.name}-${f.errors.indexOf(e)}`}>{e.message}</li>)) : <li>{t('Unknown error! \n {{details}}', { replace: {details: JSON.stringify(f)}})}</li>}
                         </ul>
                     </div>)
                 })}
