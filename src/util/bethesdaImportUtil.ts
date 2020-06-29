@@ -1,4 +1,4 @@
-import { fs, types } from 'vortex-api';
+import { fs, log } from 'vortex-api';
 import * as path from 'path';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 import Promise from 'bluebird';
@@ -23,19 +23,22 @@ export function getBethesdaNetModData(manifestPath: string, creationClub: boolea
     .then(
         (manifests) => {
             if (!manifests) return Promise.reject(`Error reading ${manifestPath}`);
-            return Promise.all(manifests.map(manifest => {
-                return new Promise ((resolve, reject) => {
-                    fs.readFileAsync(path.join(manifestPath, manifest))
-                    .then(
-                        (data : string) => resolve(parseManifest(manifest, data.toString(), creationClub))
-                    )
-                });
-            }))
+            return Promise.reduce(manifests, (accum, manifest, idx) => 
+            fs.readFileAsync(path.join(manifestPath, manifest))
+                .then((data: string) => parseManifest(manifest, data.toString(), creationClub).then(m => {
+                    accum.push(m);
+                    return accum;
+                }))
+                .catch(err => {
+                    log('warn', 'Error reading Bethesda.net manifest', err);
+                    return accum;
+                })
+            , []);
         })
     .catch(err => Promise.reject(err));
 }
 
-function parseManifest(manifest: string, data : string, cc: boolean) : IBethesdaNetEntries {
+function parseManifest(manifest: string, data : string, cc: boolean) : Promise<IBethesdaNetEntries> {
     // Filter the file paths out of the gumf that is the manifest file.
     const matches = data.match(filePathMatcher);
     if (!matches) return Promise.reject(`Error matching files from manifest ${manifest}`);

@@ -147,7 +147,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         const { mods, t } = this.props;
 
         return getBethesdaNetModData(bethesdaModManifestPath, false)
-        .catch(err => null)
+        .catch(() => null)
         .then((bnMods :IBethesdaNetEntries[]) => {
             if (!importCC) {
                 this.nextState.modsToImport = convertModArray(bnMods, mods); 
@@ -157,7 +157,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             .then((ccMods: IBethesdaNetEntries[]) => {
                 const allMods = bnMods ? bnMods.concat(ccMods) : ccMods;
                 this.nextState.modsToImport = convertModArray(allMods, mods);
-
+                return Promise.resolve();
             })
             .catch(err => {
                 if (bnMods.length) {
@@ -171,7 +171,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
                         {err.code} - {err.message}
                     </span>
                 );
-                Promise.resolve();
+                return Promise.resolve();
             })
         });
     }
