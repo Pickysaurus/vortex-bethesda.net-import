@@ -3,7 +3,7 @@ import * as path from 'path';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 import Promise from 'bluebird';
 import * as https from 'https';
-const filePathMatcher = /data\/([\w\-\/ \(\)]+.[a-zA-Z0-9]{3})/g;
+const filePathMatcher = /data\/([\w\-\/ \'\(\)]+.[a-zA-Z0-9]{3})/g;
 
 // var https = require('follow-redirects').https;
 
