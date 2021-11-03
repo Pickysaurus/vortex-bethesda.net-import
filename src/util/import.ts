@@ -156,7 +156,7 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
             logicalFileName: mod.name,
             author: mod.author,
             installTime: new Date(),
-            version: mod.version,
+            version: mod.version.toString(),
             shortDescription: mod.description ? mod.description.length >= 175 ? `${mod.description.substr(0, 175)}...` : mod.description : undefined,
             description: mod.description,
             pictureUrl: mod.pictureUrl,
