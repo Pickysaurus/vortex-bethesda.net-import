@@ -211,7 +211,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         const { t, visible } = this.props;
         const { error, importStep } = this.state;
 
-        const canCancel = ['start', 'setup'].indexOf(importStep) !== -1;
+        const canCancel = ['start', 'setup', 'working'].indexOf(importStep) !== -1;
 
         return(
             <Modal id='bethesda-import-dialog' show={visible} onHide={this.nop}>
@@ -235,7 +235,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
         // Can we use the next button?
         const {error, importStep, importEnabled, importCC, ccCount, modCount} = this.state;
         const startModsCount = importCC ? ccCount + modCount : modCount;
-        return (error !== undefined) || (importStep === 'wait') 
+        return (error !== undefined) || (['wait', 'working'].includes(importStep)) 
         || ((importStep === 'start') && (!startModsCount))
         || ((importStep === 'setup') && (Object.keys(importEnabled).filter(key => importEnabled[key] === true).length) === 0);
     }
@@ -243,7 +243,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
     private previousDisabled():boolean {
         // Can we use the previous button?
         const {error, importStep} = this.state;
-        return (error !== undefined) || (['wait', 'start', 'review'].includes(importStep));
+        return (error !== undefined) || (['wait', 'start', 'working', 'review'].includes(importStep));
     }
 
     private next = (): void => {
@@ -386,6 +386,7 @@ class BethesdaImport extends ComponentEx<IProps, IComponentState> {
             <div className='bethesda-import-container'>
                 <span>{t('Currently importing: {{mod}}', {replace: { mod: progress.mod } })}</span>
                 <ProgressBar now={perc} label={`${perc}%`} />
+                <span>{t('This can take a while if the Bethesda.net API is being slow.')}</span>
             </div>
         )
     }
