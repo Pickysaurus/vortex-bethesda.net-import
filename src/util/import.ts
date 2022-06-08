@@ -46,7 +46,7 @@ function importMods(t: Function,
                     // Make sure this mod isn't one of the erroring ones. 
                     if (errors.find(e => e.name === mod.name)) return Promise.resolve();
                     // Create DB entry for Vortex.
-                    store.dispatch(actions.addMod(gameId, toVortexMod(mod, vortexId)));
+                    store.dispatch(actions.addMod(gameId, toVortexMod(mod, vortexId, gameId)));
                     return Promise.resolve();
                 })
     })
@@ -109,7 +109,7 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
     const sevenZip = new util.SevenZip();
     const gameId = selectors.activeGameId(store.getState());
     // Store the archive name as we use it more than once.
-    const archiveName = `${mod.name}-${mod.id}-${mod.version}`
+    const archiveName = `${sanitizeForFileName(mod.name)}-${mod.id}-${mod.version}`
     const archivePath = path.join(downloadPath, `${archiveName}.7z`);
     // NOTE: A temporary path was required as Vortex would end up with duplicate entires while creating the archives. 
     const tempPath = path.join(installPath, `${archiveName}.7z`);
@@ -143,7 +143,7 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
     }).catch(err => Promise.reject([err]));
 }
 
-function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
+function toVortexMod(mod: IBethesdaNetEntries, vortexId: string, gameId: string) : types.IMod {
     // Convert our Bethesda mod to a proper Vortex mod entry. 
     const vortexMod: types.IMod = {
         id: vortexId,
@@ -162,10 +162,33 @@ function toVortexMod(mod: IBethesdaNetEntries, vortexId: string) : types.IMod {
             pictureUrl: mod.pictureUrl,
             notes: 'Imported from Bethesda.net',
             modId: mod.id,
-            fileMD5: mod.md5hash
-        }
+            fileMD5: mod.md5hash,
+            source: 'website',
+            url: `https://bethesda.net/en/mods/${bethesdaNetGameId(gameId)}/mod-detail/${mod.id}`
+        },
     };
     return vortexMod;
+}
+
+function bethesdaNetGameId(vortexGameId: string): string {
+    switch(vortexGameId) {
+        case 'fallout4': return 'fallout4';
+        case 'skyrimse': return 'skyrim';
+        case 'skyrimspecialedition': return 'skyrim';
+        default: return vortexGameId;
+    }
+}
+
+function sanitizeForFileName(input: string): string {
+    const illegalRe = /[\/\?<>\\:\*\|":]/g;
+    const controlRe = /[\x00-\x1f\x80-\x9f]/g;
+    const reservedRe = /^\.+$/;
+    const windowsReservedRe = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+
+    return input.replace(illegalRe, '')
+    .replace(controlRe, '')
+    .replace(reservedRe, '')
+    .replace(windowsReservedRe, '');
 }
 
 export default importMods;
