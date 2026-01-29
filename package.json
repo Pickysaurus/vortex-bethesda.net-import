@@ -1,11 +1,11 @@
 {
   "name": "import-from-bethesda.net",
-  "version": "1.1.11",
+  "version": "2.0.0",
   "description": "Import mods managed by Bethesda.net into Vortex",
   "main": "./out/index.js",
   "repository": "",
   "scripts": {
-    "webpack": "node ./node_modules/webpack/bin/webpack --config webpack.config.js --display-error-details --progress --profile --color",
+    "webpack": "node ./node_modules/webpack/bin/webpack --config webpack.config.js --progress --profile --color",
     "bundle7z": "7z a -t7z sample-extension.7z .\\dist\\index.js .\\dist\\info.json",
     "build": "npm run webpack && copyfiles -f src/stylesheets/* dist && copyfiles -f src/images/* dist && extractInfo"
   },
@@ -17,28 +17,30 @@
     ]
   },
   "devDependencies": {
-    "7z-bin": "Nexus-Mods/7z-bin",
-    "@types/i18next": "^12.1.0",
     "@types/node": "^12.0.10",
-    "@types/react": "^16.8.22",
+    "@types/react": "^19.2.8",
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
+    "@types/yazl": "^3.3.0",
+    "7z-bin": "Nexus-Mods/7z-bin",
     "bluebird": "^3.5.5",
-    "copyfiles": "^2.1.1",
-    "electron": "18.3.7",
-    "i18next": "^17.0.4",
+    "copyfiles": "^2.4.1",
+    "electron": "^40.0.0",
+    "fs": "^0.0.1-security",
     "modmeta-db": "Nexus-Mods/modmeta-db",
-    "react": "^16.8.6",
     "react-bootstrap": "^0.32.4",
     "ts-loader": "^6.0.4",
-    "typescript": "^3.5.2",
+    "typescript": "^5.9.3",
     "vortex-api": "Nexus-Mods/vortex-api",
-    "webpack": "^4.35.0",
-    "webpack-cli": "^3.3.4"
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "react-i18next": "^11.3.5",
-    "react-redux": "^7.2.0",
-    "shortid": "^2.2.15"
+    "react": "^19.2.3",
+    "react-i18next": "^16.5.3",
+    "react-redux": "^9.2.0",
+    "redux-act": "^1.8.0",
+    "shortid": "^2.2.15",
+    "yazl": "^3.3.1"
   }
 }

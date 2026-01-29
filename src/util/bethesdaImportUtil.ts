@@ -1,7 +1,7 @@
 import { fs, log } from 'vortex-api';
 import * as path from 'path';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
-import Promise from 'bluebird';
+import Bluebird from 'bluebird';
 import * as https from 'https';
 const filePathMatcher = /data\/([\w\-\/ \'\(\)]+.[a-zA-Z0-9]{3})/g;
 
@@ -17,13 +17,13 @@ const options = {
   'timeout': 10000,
 };
 
-export function getBethesdaNetModData(manifestPath: string, creationClub: boolean): Promise<IBethesdaNetEntries> {
+export function getBethesdaNetModData(manifestPath: string, creationClub: boolean): Bluebird<IBethesdaNetEntries> {
     // Get an object containing all installed Bethesda.net mods.
     return fs.readdirAsync(manifestPath)
     .then(
         (manifests) => {
-            if (!manifests) return Promise.reject(`Error reading ${manifestPath}`);
-            return Promise.reduce(manifests, (accum, manifest, idx) => 
+            if (!manifests) return Bluebird.reject(`Error reading ${manifestPath}`);
+            return Bluebird.reduce(manifests, (accum, manifest, idx) => 
             fs.readFileAsync(path.join(manifestPath, manifest))
                 .then((data: string) => parseManifest(manifest, data.toString(), creationClub).then(m => {
                     accum.push(m);
@@ -35,13 +35,13 @@ export function getBethesdaNetModData(manifestPath: string, creationClub: boolea
                 })
             , []);
         })
-    .catch(err => Promise.reject(err));
+    .catch(err => Bluebird.reject(err));
 }
 
-function parseManifest(manifest: string, data : string, cc: boolean) : Promise<IBethesdaNetEntries> {
+function parseManifest(manifest: string, data : string, cc: boolean) : Bluebird<IBethesdaNetEntries> {
     // Filter the file paths out of the gumf that is the manifest file.
     const matches = data.match(filePathMatcher);
-    if (!matches) return Promise.reject(`Error matching files from manifest ${manifest}`);
+    if (!matches) return Bluebird.reject(`Error matching files from manifest ${manifest}`);
     const files = matches.map(f => f.substr(5, f.length));
     // Get the ID from the manifest name.
     const idandVersion = path.basename(manifest, '.manifest').split('-');
@@ -72,8 +72,8 @@ function parseManifest(manifest: string, data : string, cc: boolean) : Promise<I
     });
 }
 
-function getApiData(id: number): Promise<void> {
-    return new Promise((resolve, reject) => {
+function getApiData(id: number): Bluebird<void> {
+    return new Bluebird((resolve, reject) => {
         const reqOptions = {...options}
         reqOptions.path = `/mods/ugc-workshop/content/get?content_id=${id}`
 

@@ -1,4 +1,4 @@
-import Promise from 'bluebird';
+import Bluebird from 'bluebird';
 import * as path from 'path';
 import * as Redux from 'redux';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
@@ -13,7 +13,7 @@ function importMods(t: Function,
                     gamePath: string,
                     mods: IBethesdaNetEntries[],
                     createArchives: boolean,
-                    progress: (mod: string, idx: number) => void): Promise<string[]> {
+                    progress: (mod: string, idx: number) => void): Bluebird<string[]> {
     
     const gameId = selectors.activeGameId(store.getState());
     const errors = [];
@@ -22,7 +22,7 @@ function importMods(t: Function,
     // Get the staging and download paths
     const installPath = selectors.installPath(store.getState());
     const downloadPath = selectors.downloadPath(store.getState());
-    return Promise.mapSeries(mods, (mod: IBethesdaNetEntries, idx: number, len: number) => {
+    return Bluebird.mapSeries(mods, (mod: IBethesdaNetEntries, idx: number, len: number) => {
         log('debug', 'transferring', mod);
         // Generate an ID for Vortex
         const vortexId = `bethesdanet-${mod.id}-${mod.version}`;
@@ -32,9 +32,9 @@ function importMods(t: Function,
         return transferMod(mod, gamePath, installPath, vortexId)
             .then(() => {
                 //Create an archive for this mod, if we selected that option otherwise resolve here. 
-                if (!createArchives) return Promise.resolve();
+                if (!createArchives) return Bluebird.resolve();
                 return createArchive(installPath, downloadPath, mod, vortexId, store)
-                .then(() => Promise.resolve())
+                .then(() => Bluebird.resolve())
                 .catch(err => errors.push({name: mod.name, errors:err}));
             })
             .catch(err => {
@@ -44,10 +44,10 @@ function importMods(t: Function,
             })
                 .then(() => {
                     // Make sure this mod isn't one of the erroring ones. 
-                    if (errors.find(e => e.name === mod.name)) return Promise.resolve();
+                    if (errors.find(e => e.name === mod.name)) return Bluebird.resolve();
                     // Create DB entry for Vortex.
                     store.dispatch(actions.addMod(gameId, toVortexMod(mod, vortexId, gameId)));
-                    return Promise.resolve();
+                    return Bluebird.resolve();
                 })
     })
     .then(() => {
@@ -58,7 +58,7 @@ function importMods(t: Function,
 
 }
 
-function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: string, vortexId: string): Promise<any> {
+function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: string, vortexId: string): Bluebird<any> {
     const modFolder = mod.creationClub ? 'Creations' : 'Mods';
     const manifest = path.join(gamePath, modFolder, mod.manifest);
     const stagingPath = path.join(installPath, vortexId);
@@ -75,21 +75,21 @@ function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: st
 
     if (mod.isAlreadyManaged) {
         errors.push({message: `This mod has already been imported. Please uninstall the current version from Vortex before importing again.`});
-        return Promise.reject(errors);
+        return Bluebird.reject(errors);
     }
 
     // Check all the file exist in the data folder (and aren't staged files)
-    return Promise.all(transferData.map(t => {
+    return Bluebird.all(transferData.map(t => {
         return fs.statAsync(t.sourcePath).catch((err: Error) => errors.push(err));
     }))
     // Create destination folder
     .then(() => {
-        if (errors.length) return Promise.reject(errors);
+        if (errors.length) return Bluebird.reject(errors);
         return fs.ensureDirAsync(stagingPath).catch((err: Error) => errors.push(err))
         // Move files over
         .then(() => {
-            if (errors.length) return Promise.reject(errors);
-            return Promise.all(transferData.map(t => {
+            if (errors.length) return Bluebird.reject(errors);
+            return Bluebird.all(transferData.map(t => {
                 return fs.moveAsync(t.sourcePath, t.destinationPath).catch((err: Error) => errors.push(err));
             })).catch((err: Error) => errors.push(err))
             // Delete the manifest to ensure Bethesda.net will not manage this file anymore. 
@@ -98,12 +98,12 @@ function transferMod(mod: IBethesdaNetEntries, gamePath: string, installPath: st
     })
     //Catch and return any errors.
     .catch((err: Error) => {
-        return Promise.reject(errors);
+        return Bluebird.reject(errors);
     });
 }
 
-function createArchive(installPath: string, downloadPath: string, mod: IBethesdaNetEntries, vortexId: string, store: Redux.Store<types.IState>): Promise<any> {
-    if (mod.isAlreadyManaged) return Promise.resolve();
+function createArchive(installPath: string, downloadPath: string, mod: IBethesdaNetEntries, vortexId: string, store: Redux.Store<types.IState>): Bluebird<any> {
+    if (mod.isAlreadyManaged) return Bluebird.resolve();
     log('debug', 'Creating Archive', vortexId);
     // We need to create the 7z archive, then get it's MD5 and ID to put into the mod object.
     const sevenZip = new util.SevenZip();
@@ -135,12 +135,12 @@ function createArchive(installPath: string, downloadPath: string, mod: IBethesda
                 // Move the archive from the temp folder to the download folder. 
                 return fs.moveAsync(tempPath, archivePath)
                 .then(() => {
-                    // Resolve the promise! 
-                    return Promise.resolve()
+                    // Resolve the Bluebird! 
+                    return Bluebird.resolve()
                 });
             });
         });
-    }).catch(err => Promise.reject([err]));
+    }).catch(err => Bluebird.reject([err]));
 }
 
 function toVortexMod(mod: IBethesdaNetEntries, vortexId: string, gameId: string) : types.IMod {

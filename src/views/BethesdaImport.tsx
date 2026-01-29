@@ -9,6 +9,7 @@ import { Alert, Button, ProgressBar, Checkbox } from 'react-bootstrap';
 import getBethesdaNetModData from '../util/bethesdaImportUtil';
 import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
 import importMods from '../util/import';
+import { JSX } from 'react';
 
 
 type Step = 'start' | 'setup' | 'working' | 'review' | 'wait';
