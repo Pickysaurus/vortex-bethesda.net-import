@@ -1,21 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-const filePathMatcher = /data\/([\w\-\/ \'\(\)]+.[a-zA-Z0-9]{3})/g;
-
-export interface IBethesdaNetEntry {
-    id: string;
-    name: string;
-    files: string[];
-    creationClub?: boolean;
-    isAlreadyManaged?: boolean;
-    description?: string;
-    author?: string;
-    version?: string;
-    pictureUrl?: string;
-    manifest: string;
-    md5hash?: string;
-    archiveId?: string;
-};
+import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
+import { randomInt } from 'crypto';
 
 type ContentCatalog = 
 {
@@ -25,15 +11,35 @@ type ContentCatalog =
     }
 } & 
 {
-    [id: string]: {
-        AchievementSafe?: boolean;
-        Files: string[];
-        FileSize: number;
-        Timestamp: number;
-        Title: string;
-        Version: string;
-    }
+    [id: string]: CatalogMod;
 };
+
+type CatalogMod = {
+    AchievementSafe?: boolean;
+    Files: string[];
+    FilesSize: number;
+    Timestamp: number;
+    Title: string;
+    Version: string; 
+}
+
+// const _debugAddFakeMods = (total: number) => {
+//     let cur = 0;
+//     const result: { [id: string]: CatalogMod } = {};
+//     while (cur < total) {
+//         const id = randomInt(0, 10000);
+//         result[String(id)] = {
+//             AchievementSafe: false,
+//             Files: [],
+//             FilesSize: 0,
+//             Timestamp: Math.floor(new Date().getTime() / 1000),
+//             Title: `Example Mod ${id}`,
+//             Version: '1.0.0'
+//         }
+//         cur++;
+//     }
+//     return result;    
+// }
 
 const appData = (gameId: string): string | undefined => {
     switch(gameId) {
@@ -45,7 +51,7 @@ const appData = (gameId: string): string | undefined => {
     }
 }
 
-export async function getBethesdaNetModsFromContentCatalogue(gameId: string, localAppData: string, send: (ev: any) => void) {
+export async function getBethesdaNetModsFromContentCatalogue(gameId: string, localAppData: string, send: (ev: any) => void): Promise<IBethesdaNetEntry[]> {
     const gameAppDataFolder = appData(gameId);
     if (!localAppData || !gameAppDataFolder) throw new Error('LOCALAPPDATA for game could not be found');
 
@@ -53,81 +59,59 @@ export async function getBethesdaNetModsFromContentCatalogue(gameId: string, loc
 
     try {
         const catalogRaw = await fs.promises.readFile(manifestPath, { encoding: 'utf8' });
-        const catalog: ContentCatalog = JSON.parse(catalogRaw);
+        let catalog: ContentCatalog = JSON.parse(catalogRaw);
         delete catalog.ContentCatalog;
-        send({ type: 'scanprogress', done: 0, total: Object.keys(catalog).length, message: 'Parsing catalog for creations...' });
-        const mods: IBethesdaNetEntry[] = Object.keys(catalog).map(key => {
+        // const fakeMods = _debugAddFakeMods(20);
+        // catalog = {...catalog, ...fakeMods };
+        let mods = [];
+        for (const key of Object.keys(catalog)) {
             const mod = catalog[key];
-            const [_, id] = key.split('_');
-            return { 
-                id, 
+            const [_, id]: (string|undefined)[]= key.split('_');
+            const entry = { 
+                id: id ?? key, 
                 name: mod.Title,
                 files: mod.Files,
+                fileSize: mod.FilesSize ?? 0,
+                timeStamp: mod.Timestamp,
                 author: 'Bethesda.net',
                 description: '',
                 pictureUrl: '',
                 version: mod.Version,
-                creationClub: mod.AchievementSafe || false,
+                achievementSafe: mod.AchievementSafe || false,
                 manifest: key
             }
-        });
-
+            send?.({ type: 'scanparsed', id: entry.id, data: entry });
+            await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
+            mods.push(entry);
+        }
         return mods;
 
     }
     catch(err) {
         if ((err as any).code === 'ENOENT') return [];
-        send?.({ type: 'fatal', error: (err as Error).message });
         throw err;
     }
 }
 
-export default async function getBethesdaNetModDataFromManifest(manifestPath: string, creationClub: boolean): Promise<IBethesdaNetEntry | undefined> {
-    const manifestName = path.basename(manifestPath)
-    const manifestText = await fs.promises.readFile(manifestPath, { encoding: 'utf8' });
-    const matches = manifestText.match(filePathMatcher);
-    if (!matches) throw new Error(`${manifestName} does not contain any valid file references`);
-    const files = matches.map(f => f.substring(5, f.length));
-    return parseBethesdaNetManifest(manifestName, files, creationClub);
-};
+export async function updateContentCatalogue(gameId: string, localAppData: string, importedIds: string[]) {
+    const gameAppDataFolder = appData(gameId);
+    if (!localAppData || !gameAppDataFolder) throw new Error('LOCALAPPDATA for game could not be found');
 
-async function parseBethesdaNetManifest(manifestName: string, files: string[], creationClub: boolean): Promise<IBethesdaNetEntry> {
-    const idandVersion = path.basename(manifestName, '.manifest').split('-');
-    const [ id, version ] = idandVersion;
-    // Get the name from the plugin
-    const baseName = files[0].substring(0, files[0].lastIndexOf('.'));
-    // Uppercase the first letter for tidiness
-    const name = `${baseName.charAt(0).toUpperCase()}${baseName.slice(1)}`;
+    const manifestPath = path.join(localAppData, gameAppDataFolder, 'ContentCatalog.txt');
+    const manifestBackup = path.join(localAppData, gameAppDataFolder, `ContentCatalog-Backup-${new Date().getTime()}.txt`);
 
-    const parsedManifest = { 
-        id, 
-        name,
-        files,
-        author: 'Bethesda.net',
-        description: '',
-        pictureUrl: '',
-        version: version,
-        creationClub,
-        manifest: manifestName
-    };
-
-    // Now we want to talk to the Bethesda.net API for any extra data
     try {
-        const bethesdaAPIPath = `https://api.bethesda.net/mods/ugc-workshop/content/get?content_id=${id}`;
-        const res = await fetch(bethesdaAPIPath);
-        if (!res.ok) return parsedManifest;
-        const apiData = await res.json();
-        const apiManifest = { 
-            ...parsedManifest, 
-            name: apiData.name || name, 
-            author: apiData.username || 'Bethesda.net',
-            description: apiData.description || '',
-            pictureUrl: apiData.preview_file_url || '',
-            version: apiData.version || version
-        };
-        return apiManifest;
+        const catalogRaw = await fs.promises.readFile(manifestPath, { encoding: 'utf8' });
+        let catalog: ContentCatalog = JSON.parse(catalogRaw);
+        for (const id of importedIds) {
+            if (catalog[id]) delete catalog[id];
+        }
+        // Backup the file
+        await fs.promises.copyFile(manifestPath, manifestBackup);
+        // Update the catalog
+        await fs.promises.writeFile(manifestPath, JSON.stringify(catalog, null, 2), { encoding: 'utf8' });
     }
     catch(err) {
-        return parsedManifest;
+        throw err;
     }
 }

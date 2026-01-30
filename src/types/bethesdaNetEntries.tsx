@@ -1,14 +1,16 @@
-export interface IBethesdaNetEntries {
+export interface IBethesdaNetEntry {
     id: string;
+    manifest: string;
     name: string;
+    version: string;
     files: string[];
-    creationClub?: boolean;
+    fileSize: number;
+    timeStamp: number;
+    achievementSafe?: boolean;
     isAlreadyManaged?: boolean;
     description?: string;
     author?: string;
-    version?: string;
     pictureUrl?: string;
-    manifest: string;
     md5hash?: string;
     archiveId?: string;
-  }
+};

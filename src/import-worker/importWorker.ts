@@ -1,13 +1,14 @@
-// import { parentPort } from 'worker_threads';
 import fs from 'fs';
 import path from 'path';
 import yazl from 'yazl';
-import { getBethesdaNetModsFromContentCatalogue, IBethesdaNetEntry } from './bethesdaNet';
+import { getBethesdaNetModsFromContentCatalogue, updateContentCatalogue } from './bethesdaNet';
 import { createHash, randomBytes } from 'crypto';
+import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
+import { ImportEvent } from '../types/importEvents';
 
 let cancelled = false;
 
-function send(ev: any) {
+function send(ev: ImportEvent) {
     process.send?.(ev);
 }
 
@@ -15,14 +16,13 @@ async function scan(gameId: string, localAppData: string) {
     cancelled = false;
     const errors: string[] = [];
     // Mod import
-    send({ type: 'scanprogress', done: 0, total: 1, message: 'Reading Bethesda.net mod info from ContentCatalog.txt...' });
-    const newManifestMods = await getBethesdaNetModsFromContentCatalogue(gameId, localAppData, send);
-    if (newManifestMods) {
-        for (const mod of newManifestMods) {
-            send({ type: 'scanparsed', id: mod.id, data: mod })
-        }
+    try {
+        const newManifestMods = await getBethesdaNetModsFromContentCatalogue(gameId, localAppData, send);
+        send({ type: 'scancomplete', total: newManifestMods.length, errors })
     }
-    send({ type: 'scancomplete', total: newManifestMods.length, errors });
+    catch(err) {
+        send?.({ type: 'fatal', error: `Error scanning for creations: ${(err as Error).message}` });
+    }
 }
 
 async function importMods(
@@ -37,7 +37,10 @@ async function importMods(
     for (const mod of modsToImport) {
         if (!importIds.includes(mod.id)) continue;
         const idx = modsToImport.indexOf(mod);
-        send({ type: 'importprogress', done: idx, total: modsToImport.length, message: `Importing "${mod.name}"...` });
+
+        let importProgress: ImportEvent = { type: 'importprogress', done: idx, total: modsToImport.length, message: `Importing "${mod.name}"...`, detail: '' };
+
+        send(importProgress);
         const vortexId = `bethesdanet-${mod.id}-${mod.version}`;
         
         // Move mod files to the staging folder
@@ -47,24 +50,24 @@ async function importMods(
             // Map the file sources and targets
             const filesToImport = mod.files.map(f => ({ source: path.join(gamePath, 'Data', f), target: path.join(stagingFolderPath, f)}));
             // Create the staging folder.
+            const stagingStat = await fs.promises.stat(stagingFolderPath).catch(() => undefined);
+            if (stagingStat) await fs.promises.rmdir(stagingFolderPath, { recursive: true });
             await fs.promises.mkdir(stagingFolderPath);
             // Move the files to the staging folder and remove from the source locations
-            send({ type: 'importprogress', done: idx, total: modsToImport.length, message: `Importing ${filesToImport.length} files for "${mod.name}"...` });
             const importOps = await Promise.allSettled(filesToImport.map(
-                async ({source, target }) => {
+                async ({ source, target }) => {
+                    importProgress.detail = `Importing ${path.basename(source)}`;
+                    await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
+                    send(importProgress);
                     try {
                         await fs.promises.stat(source);
-                        // await fs.promises.rename(source, target);
-                        const err: any = new Error('Test error');
-                        err.code = 'EXDEV';
-                        throw err;
+                        await fs.promises.rename(source, target);
                     }
                     catch(e) {
                        if ((e as any)?.code !== "EXDEV") throw e;
                        // Not on the same drive.
                        await fs.promises.copyFile(source, target);
-                       // Restore for final release!
-                       // await fs.promises.unlink(source);
+                       await fs.promises.unlink(source);
                        return;
                     }
                 }
@@ -85,13 +88,14 @@ async function importMods(
 
             if (cancelled) throw new Error('Process cancelled');
             // Create the archive
-            const tmpPath = path.join(stagingFolder, vortexId, `${vortexId}.tmp`);
+            const tmpPath = path.join(stagingFolder, vortexId, `${vortexId}.zip`);
             const dest = path.join(downloadFolder, `${vortexId}.zip`);
+            importProgress.detail = 'Creating archive';
+            send(importProgress);
             try {
                 const files = await fs.promises.readdir(stagingFolderPath);
                 const zipList = files.map(f => ({ abs: path.join(stagingFolder, vortexId, f), zip: f }));
                 const zip = new yazl.ZipFile();
-                send({ type: 'message', message: JSON.stringify(zipList) });
                 for (const zipFile of zipList) {
                     zip.addFile(zipFile.abs, zipFile.zip);
                 }
@@ -108,25 +112,36 @@ async function importMods(
                     zip.end();
                 });
 
-                send({ type: 'importprogress', done: idx, total: modsToImport.length, message: `Moving archive to downloads "${mod.name}"...` });
-
-                // Move the zip to the downloads folder and update the Vortex mod
-                await fs.promises.copyFile(tmpPath, dest);
-                await fs.promises.unlink(tmpPath);
-
                 // Generate a UID and hash the archive
                 const archiveId = randomBytes(8).toString('hex');
                 vortexMod.archiveId = archiveId;
-                send({ type: 'importprogress', done: idx, total: modsToImport.length, message: `Hashing MD5 for archive of "${mod.name}"...` });
+                importProgress.detail = 'Creating archive MD5 hash';
+                send(importProgress);
                 const hash = await new Promise<string>((resolve, reject) => {
                     const hash = createHash('md5');
-                    const stream = fs.createReadStream(dest);
+                    const stream = fs.createReadStream(tmpPath);
                     stream.on('error', reject);
                     stream.on('data', chunk => hash.update(chunk));
                     stream.on('end', () => resolve(hash.digest('hex')));
                 });
                 vortexMod.attributes.fileMD5 = hash;
+                const stat = await fs.promises.stat(tmpPath);
+                vortexMod.attributes.fileSize = stat.size;
 
+                importProgress.detail = 'Moving archive to downloads';
+                send(importProgress);
+
+                send({ 
+                    type: 'register-archive', 
+                    id: archiveId, 
+                    fileName: path.basename(tmpPath), 
+                    path: tmpPath, 
+                    size: stat.size, 
+                    modName: mod.name, 
+                    modVersion: mod.version 
+                });
+
+                await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
 
             }
             catch(err) {
@@ -145,7 +160,35 @@ async function importMods(
         }
     }
 
+    try {
+        await updateContentCatalogue(gameId, localAppData, modsToImport.map(m => m.manifest));
+    }
+    catch(err) {
+        send({ type: 'message', level: 'warn', message: 'Failed to update content catalogue after import: '+(err as Error).message });
+    }
+
     send({ type: 'importcomplete', total: modsToImport.length, errors });
+}
+
+async function moveArchive(source: string, destPath: string) {
+    const dest = path.join(destPath, path.basename(source));
+    try {
+        try {
+            const stat = await fs.promises.stat(dest).catch(() => undefined);
+            if (stat) await fs.promises.unlink(dest);
+            await fs.promises.rename(source, dest);
+        }
+        catch(e) {
+            if ((e as any)?.code !== "EXDEV") throw e;
+            // move across drive.
+            await fs.promises.copyFile(source, dest);
+            await fs.promises.unlink(source);
+        }
+        send({ type: 'message', level: 'debug', message: `Moved archive successfully from ${source} to ${dest}` })
+    }
+    catch(err) {
+        send({ type: 'fatal', error: `Failed to move mod archive to downloads folder: ${(err as Error).message}` });
+    }
 }
 
 function toVortexMod(mod: IBethesdaNetEntry, vortexId: string, gameId: string) {
@@ -166,11 +209,12 @@ function toVortexMod(mod: IBethesdaNetEntry, vortexId: string, gameId: string) {
             shortDescription: 'Imported from Bethesda.net',
             description: mod.description,
             pictureUrl: mod.pictureUrl,
-            notes: `Imported from Bethesda.net ${new Date().toLocaleDateString()}\nAchievement Safe: ${mod.creationClub ? 'YES' : 'NO'}`,
+            notes: `Imported from Bethesda.net ${new Date().toLocaleDateString()}\nAchievement Safe: ${mod.achievementSafe ? 'YES' : 'NO'}`,
             modId: mod.id,
             fileMD5: '', // mod.md5hash, // Added if we create an archive
             source: 'website',
-            url: `https://creations.bethesda.net/en/${gameId}/all?text=${encodeURI(mod.name)}`
+            url: `https://creations.bethesda.net/en/${gameId}/all?text=${encodeURI(mod.name)}`,
+            fileSize: 0 // Added if we create an archive
         },
     };
     return vortexMod;
@@ -192,6 +236,10 @@ process.on('message', async (msg) => {
                 msg.localAppData, msg.stagingFolder, msg.downloadFolder, 
                 msg.createArchives
             );
+            return;
+        }
+        case 'moveArchive': {
+            await moveArchive(msg.tempPath, msg.downloadFolder);
             return;
         }
         default: {

@@ -1,19 +1,10 @@
 import path from 'path';
-
-// import { Worker } from 'worker_threads';
 import { fork, ChildProcess } from "child_process";
-import { IBethesdaNetEntries } from '../types/bethesdaNetEntries';
+import { ImportEvent as BaseImportEvent } from '../types/importEvents';
 import { types } from 'vortex-api';
+import { LogLevel } from 'vortex-api/lib/util/log';
 
-type ImportEvent =
-    | { type: 'fatal', error: string }
-    | { type: 'exit', code: number }
-    | { type: 'message', message: string }
-    | { type: 'scanprogress' | 'importprogress', done: number, total: number, message: string }
-    | { type: 'scanparsed', id: string, data: IBethesdaNetEntries }
-    | { type: 'scancomplete', total: number, errors: string[] }
-    | { type: 'importedmod', mod: types.IMod }
-    | { type: 'importcomplete', total: number, errors: string[] };
+type ImportEvent = BaseImportEvent<types.IMod, LogLevel>;
 
 export function createImportService() {
     let child: ChildProcess | null = null;
@@ -37,10 +28,10 @@ export function createImportService() {
         });
 
         // Debuging 
-        child.on('disconnect', () => emit({ type: 'message', message: 'Disconnected' }));
-        child.on('spawn', () => emit({ type: 'message', message: `Child spawned: ${child?.pid}` }));
+        child.on('disconnect', () => emit({ type: 'message', level: 'warn', message: 'Disconnected' }));
+        child.on('spawn', () => emit({ type: 'message', level: 'debug', message: `Child spawned: ${child?.pid}` }));
 
-        child.stdout?.on('data', (d) => emit({ type: 'message', message:`[child stdout] ${d.toString()}`}))
+        child.stdout?.on('data', (d) => emit({ type: 'message', level: 'debug', message:`[child stdout] ${d.toString()}`}))
         child.stderr?.on('data', (d) => emit({ type: 'fatal', error:`[child stderr] ${d.toString()}`}));
 
         return child;
@@ -66,6 +57,13 @@ export function createImportService() {
                     localAppData, stagingFolder, 
                     downloadFolder, createArchives
                 });
+        },
+
+        moveArchive(tempPath: string, downloadFolder: string) {
+            ensureChildProcess().send({
+                type: 'moveArchive',
+                tempPath, downloadFolder
+            });
         },
 
         cancel() {
