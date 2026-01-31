@@ -185,9 +185,9 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
         setProgress((p) => ({...p, state: 'running'}));
         setError(undefined);
         setTableState('importing');
-        if (!discoveryPath || !scanResults) return;
+        if (!discoveryPath || !selected.size) return;
         serviceRef.current?.import(
-            Object.keys(scanResults), 
+            [...selected], 
             discoveryPath, 
             gameId,
             localAppData,
