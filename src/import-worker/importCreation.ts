@@ -115,7 +115,7 @@ export async function createArchiveForCreation(
             }
             // Write out the zip file
             await new Promise<void>((resolve, reject) => {
-                const out = fs.createWriteStream(tmpPath);
+                const out = fs.createWriteStream(dest);
 
                 out.on('error', reject);
                 out.on('close', resolve);
@@ -133,27 +133,18 @@ export async function createArchiveForCreation(
             send(importProgress);
             const hash = await new Promise<string>((resolve, reject) => {
                 const hash = createHash('md5');
-                const stream = fs.createReadStream(tmpPath);
+                const stream = fs.createReadStream(dest);
                 stream.on('error', reject);
                 stream.on('data', chunk => hash.update(chunk));
                 stream.on('end', () => resolve(hash.digest('hex')));
             });
             vortexMod.attributes.fileMD5 = hash;
-            const stat = await fs.promises.stat(tmpPath);
+            const stat = await fs.promises.stat(dest);
             vortexMod.attributes.fileSize = stat.size;
+            vortexMod.attributes.fileName = path.basename(dest);
 
             importProgress.detail = 'Moving archive to downloads';
             send(importProgress);
-
-            send({ 
-                type: 'register-archive', 
-                id: archiveId, 
-                fileName: path.basename(tmpPath), 
-                path: tmpPath, 
-                size: stat.size, 
-                modName: mod.name, 
-                modVersion: mod.version 
-            });
 
             await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
 
@@ -220,6 +211,7 @@ export function toVortexMod(mod: IBethesdaNetEntry, vortexId: string, gameId: st
             notes: `Imported from Bethesda.net ${new Date().toLocaleDateString()}\nAchievement Safe: ${mod.achievementSafe ? 'YES' : 'NO'}`,
             modId: mod.id,
             fileMD5: '', // mod.md5hash, // Added if we create an archive
+            fileName: '', // Added if we create an archive!
             source: 'website',
             url: `https://creations.bethesda.net/en/${gameId}/all?text=${encodeURI(mod.name)}`,
             fileSize: 0 // Added if we create an archive

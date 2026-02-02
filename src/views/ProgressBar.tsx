@@ -8,6 +8,13 @@ export type ImportProgressProps = {
   state?: "idle" | "running" | "success" | "error";
 };
 
+export const defaultImportProgress: ImportProgressProps = {
+    state: 'idle' as const,
+    done: 0,
+    total: 0,
+    message: 'Ready to import'
+}
+
 export default function ImportProgressBar({
   done,
   total,

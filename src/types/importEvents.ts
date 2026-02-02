@@ -8,5 +8,4 @@ export type ImportEvent<TMod = unknown, TLog = string> =
     | { type: 'scancomplete', total: number, errors: string[] }
     | { type: 'importedmod', mod: TMod }
     | { type: 'importprogress', done: number, total: number, message: string, detail?: string }
-    | { type: 'importcomplete', total: number, errors: string[] }
-    | { type: 'register-archive', id: string, fileName: string, path: string, size: number, modName: string, modVersion: string };
+    | { type: 'importcomplete', total: number, errors: string[] };

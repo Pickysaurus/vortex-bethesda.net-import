@@ -1,13 +1,13 @@
-import { actions, log, Modal, selectors, types, util } from 'vortex-api';
-import React, { useEffect, useRef, useState } from "react";
+import { actions, Icon, log, MainContext, Modal, selectors, Spinner, types, util } from 'vortex-api';
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Alert, Button } from 'react-bootstrap';
 import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
 import { useSelector, useStore } from "react-redux";
 import { useTranslation } from 'react-i18next';
 import { createImportService } from '../util/importService';
-import BethesdaImportInfo from './BethesdaImportInfo';
-import BethesdaCreationsList from './BethesdaCreationsList';
-import ImportProgressBar, { ImportProgressProps } from './ProgressBar';
+import BethesdaImportInfo from './BethesdaNetImportInfo';
+import BethesdaCreationsList from './BethesdaNetImportCreationsList';
+import ImportProgressBar, { ImportProgressProps, defaultImportProgress } from './ProgressBar';
 
 interface IProps {
     visible: boolean;
@@ -20,6 +20,12 @@ interface IImportError {
 }
 
 type TableState = 'loading' | 'importing' | 'ready';
+
+const secondaryButtonStyle: React.CSSProperties = {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255,255,255,.4)',
+    color: 'rgba(255,255,255,.4)',
+}
 
 export default function BethesdaNetImport({ visible, onHide }: IProps) {
     const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -34,7 +40,10 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
     const [error, setError] = useState<IImportError | undefined>();
     const [tableState, setTableState] = useState<TableState>('loading');
 
+    const context = useContext(MainContext);
+
     const serviceRef = useRef<ReturnType<typeof createImportService> | null>(null);
+    const offRef = useRef<() => void | null>(null);
 
     // Using a ref to keep the last visible state
     const prevVisibleRef = useRef<boolean | undefined>(undefined);
@@ -98,79 +107,88 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
     useEffect(() => {
         const wasVisible = prevVisibleRef.current;
         if (wasVisible === false && visible === true) {
-            if (!serviceRef.current) serviceRef.current = createImportService();
             setCreateArchives(true);
             setScanResults(undefined);
+            setSelected(new Set());
+            setError(undefined);
+            setProgress(defaultImportProgress);
+            const svc = createImportService();
+            serviceRef.current = svc;
+
+            const off = svc.onEvent((ev) => {
+                console.log('Event triggered', ev);
+                if (ev.type === 'scanparsed') setScanResults(prev => ({ ...prev, [ev.id]: ev.data }))
+                if (ev.type === 'importprogress') {
+                    setProgress({ 
+                        message: ev.message, 
+                        done: ev.done,
+                        total: ev.total,
+                        detail: ev.detail ?? ''
+                    });
+                }
+                if (ev.type === 'scancomplete') {
+                    setTableState('ready');
+                    if (ev.total === 0) setScanResults({});
+                    if (ev.errors?.length) setError({
+                        title: 'Full scan encountered errors',
+                        detail: ev.errors.join('\n')
+                    });
+                };
+                if (ev.type === 'importedmod') {
+                    // Save this newly created mod ready for a batch insert
+                    if (ev.mod.archiveId) {
+                        const { attributes, archiveId } = ev.mod;
+                        const { fileSize,  fileName, version, logicalFileName } = attributes;
+                        addLocalDownload(archiveId, gameId, fileName, fileSize || 0);
+                        setDownloadModInfo(archiveId, 'name', logicalFileName);
+                        setDownloadModInfo(archiveId, 'version', version);
+                        setDownloadModInfo(archiveId, 'game', gameId);
+
+                    }
+                    addMod(ev.mod, gameId);
+                    enableProfileMod(ev.mod.id);
+                }
+                if (ev.type === 'importcomplete') {
+                    setProgress(undefined);
+                    setProgress(p => ({...p, state: ev.errors.length ? 'error' : 'success', total: 1, done: 1, message: 'Import complete' }));
+                    setTableState('ready');
+                    // Turn back on the download watcher
+                    context.api.events.emit('enable-download-watch', true);
+                    setSelected(new Set());
+                    if (ev.total > 0) setDeploymentRequired();
+                    if (ev.errors?.length) setError({
+                        title: 'Import encountered errors',
+                        detail: ev.errors.join('\n')
+                    });
+                }
+                if (ev.type === 'fatal') {
+                    setError({title: 'Worker error', detail: ev.error });
+                    setProgress(prev => ({...prev, state: 'error'}));
+                }
+                if (ev.type === 'message') log(ev.level, ev.message, ev.metadata);
+            });
+
+            offRef.current = off;
             startScan();
+
+            return () => {
+                log('debug', 'Disposing Bethesda.net importer child process');
+                off();
+                svc.dispose();
+                serviceRef.current = null;
+            }
+
+            
+        }
+        else if (wasVisible === true && visible === false) {
+            log('debug', 'Disposing Bethesda.net importer child process as modal is closed');
+            offRef.current?.();
+            serviceRef.current?.dispose();
+            serviceRef.current = null;
+            context.api.events.emit('enable-download-watch', true);
         }
         prevVisibleRef.current = visible;
     }, [visible]);
-
-    // Worker Integration
-    useEffect(() => {
-        const svc = createImportService();
-        serviceRef.current = svc;
-
-        const off = svc.onEvent((ev) => {
-            console.log('Event triggered', ev);
-            if (ev.type === 'scanparsed') setScanResults(prev => ({ ...prev, [ev.id]: ev.data }))
-            if (ev.type === 'importprogress') {
-                setProgress({ 
-                    message: ev.message, 
-                    done: ev.done,
-                    total: ev.total,
-                    detail: ev.detail ?? ''
-                });
-            }
-            if (ev.type === 'scancomplete') {
-                setTableState('ready');
-                if (ev.total === 0) setScanResults({});
-                if (ev.errors?.length) setError({
-                    title: 'Full scan encountered errors',
-                    detail: ev.errors.join('\n')
-                });
-            };
-            if (ev.type === 'importedmod') {
-                // Save this newly created mod ready for a batch insert
-                addMod(ev.mod, gameId);
-                enableProfileMod(ev.mod.id);
-            }
-            if (ev.type === 'importcomplete') {
-                setProgress(undefined);
-                setProgress(p => ({...p, state: ev.errors.length ? 'error' : 'success', total: 1, done: 1, message: 'Import complete' }));
-                setTableState('ready');
-                setSelected(new Set());
-                if (ev.total > 0) setDeploymentRequired();
-                if (ev.errors?.length) setError({
-                    title: 'Import encountered errors',
-                    detail: ev.errors.join('\n')
-                });
-            }
-            if (ev.type === 'register-archive') {
-                const { id, fileName, path, size, modName, modVersion } = ev;
-                // register the archive in the state
-                addLocalDownload(id, gameId, fileName, size || 0);
-                setDownloadModInfo(id, 'name', modName);
-                setDownloadModInfo(id, 'version', modVersion);
-                setDownloadModInfo(id, 'game', gameId);
-                // move the archive into the download folder
-                serviceRef.current.moveArchive(path, downloadFolder);
-                
-            }
-            if (ev.type === 'fatal') {
-                setError({title: 'Worker error', detail: ev.error });
-                setProgress(prev => ({...prev, state: 'error'}));
-            }
-            if (ev.type === 'message') log(ev.level, ev.message, ev.metadata);
-        });
-
-        return () => {
-            console.log('Disposing BNet import worker');
-            off();
-            svc.dispose();
-            serviceRef.current = null;
-        }
-    }, []);
 
     const canCancel = true;
 
@@ -185,6 +203,8 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
         setProgress((p) => ({...p, state: 'running'}));
         setError(undefined);
         setTableState('importing');
+        // Turn off the download watcher so we can import downloads in peace!
+        context.api.events.emit('enable-download-watch', false);
         if (!discoveryPath || !selected.size) return;
         serviceRef.current?.import(
             [...selected], 
@@ -222,10 +242,43 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     total={progress?.total}
                     detail={progress?.detail}
                 />
-                <div style={{display: 'flex', gap: 4, justifyContent: 'start', justifyItems: 'start' }}>
-                    <Button onClick={startImport} disabled={selected.size === 0}>Import {selected.size}</Button>
-                    <Button onClick={startScan}>Re-Scan</Button>
-                    <Button onClick={() => serviceRef.current?.cancel()} disabled={tableState === 'ready'}>Cancel</Button>
+                <div style={{display: 'flex', gap: 4, justifyContent: 'start', justifyItems: 'start', marginTop: '4px' }}>
+                    <Button 
+                        onClick={startImport} 
+                        disabled={selected.size === 0 && tableState !== 'importing'}
+                        style={{color: 'black'}}
+                    >
+                        {tableState === 'importing' ? <Spinner /> : <Icon name='import' style={{ marginRight: '4px' }} />}
+                        {t('Import {{selected}} Creation(s)', { selected: selected.size })}
+                    </Button>
+                    <Button 
+                        onClick={startScan} 
+                        title={t('Re-Scan')} 
+                        disabled={tableState !== 'ready'} 
+                        className='btn-secondary' 
+                        style={secondaryButtonStyle}
+                    >
+                        <Icon name='refresh' />
+                    </Button>
+                    <Button 
+                        onClick={() => serviceRef.current?.cancel()} 
+                        disabled={tableState === 'ready'} 
+                        className='btn-secondary' 
+                        style={secondaryButtonStyle}
+                    >
+                        <Icon name='window-close' style={{ marginRight: '4px' }} />
+                        {t('Cancel')}
+                    </Button>
+                </div>
+                <div>
+                    <label>
+                    <input 
+                        type='checkbox'
+                        checked={createArchives}
+                        onChange={() => setCreateArchives(!createArchives)}
+                    />
+                    {t('Create ZIP archives for imported mods in the downloads folder')}
+                    </label>
                 </div>
                 {error && (
                     <Alert>

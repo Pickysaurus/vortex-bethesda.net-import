@@ -58,14 +58,7 @@ export function createImportService() {
                     downloadFolder, createArchives
                 });
         },
-
-        moveArchive(tempPath: string, downloadFolder: string) {
-            ensureChildProcess().send({
-                type: 'moveArchive',
-                tempPath, downloadFolder
-            });
-        },
-
+        
         cancel() {
             child?.send({ type: 'cancel' });
         },
