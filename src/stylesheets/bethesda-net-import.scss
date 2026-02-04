@@ -91,6 +91,7 @@
     max-height: 25vh;
     border: 1px solid var(--tw-color-translucent-dark-400);
     margin: 4px 0;
+    border-radius: 4px;
 
     .cover {
         display: flex;
@@ -191,7 +192,7 @@
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-//   border-radius: 12px;
+  border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.14);
   background: rgba(255,255,255,0.06);
 }
@@ -256,4 +257,27 @@
 }
 .iprog--error .iprog__fill {
   background: rgba(255, 120, 120, 0.85);
+}
+
+.nxm-banner-warning {
+	background-color: #422006;
+  	border: 1px solid #CA8A04;
+  	border-radius: 4px;
+  	padding: 8px 12px;
+  	margin-bottom: 8px;
+  	
+  	h2 {
+      color: #FFFFFFF2;
+      font-weight: 600;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 8px 0;
+  	}
+  	
+  	p {
+      color: #FFFFFFB2;
+      font-weight: 400;
+      margin-top: 0;
+      white-space: pre-line;
+  	}
 }

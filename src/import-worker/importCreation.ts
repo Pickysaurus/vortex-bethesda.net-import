@@ -56,8 +56,10 @@ export async function importCreationToStagingFolder(
                 await fs.promises.rename(source, target);
             }
             catch(e) {
-                if ((e as any)?.code !== "EXDEV") {
-                    failedImports[path.basename(source)] = (e as Error).message;
+                const errorCode: string | undefined = (e as any)?.code;
+                if (errorCode !== "EXDEV") {
+                    if (errorCode === 'ENOENT') failedImports[`${mod.name}:${path.basename(source)}`] = `File does not exist at '${path.join('Data', path.basename(source))}'`;
+                    else failedImports[`${mod.name}:${path.basename(source)}`] = (e as Error).message;
                     continue;
                 }
                 // Not on the same drive.
@@ -65,7 +67,7 @@ export async function importCreationToStagingFolder(
                     await fs.promises.copyFile(source, target);
                 }
                 catch(e2) {
-                    failedImports[path.basename(source)] = (e2 as Error).message;
+                    failedImports[`${mod.name}:${path.basename(source)}`] = (e2 as Error).message;
                 }
             }
 
@@ -77,7 +79,7 @@ export async function importCreationToStagingFolder(
             await fs.promises.rmdir(stagingFolderPath, { recursive: true }).catch(() => undefined);
             throw new ImportCreationError(
                 'import-files',
-                'Copying files failed',
+                'Copying files to staging folder failed',
                 failedImports
             );
         }

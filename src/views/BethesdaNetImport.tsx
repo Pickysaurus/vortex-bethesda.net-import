@@ -8,6 +8,7 @@ import { createImportService } from '../util/importService';
 import BethesdaImportInfo from './BethesdaNetImportInfo';
 import BethesdaCreationsList from './BethesdaNetImportCreationsList';
 import ImportProgressBar, { ImportProgressProps, defaultImportProgress } from './ProgressBar';
+import ErrorAlert from './ErrorAlert';
 
 interface IProps {
     visible: boolean;
@@ -149,8 +150,13 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     enableProfileMod(ev.mod.id);
                 }
                 if (ev.type === 'importcomplete') {
-                    setProgress(undefined);
-                    setProgress(p => ({...p, state: ev.errors.length ? 'error' : 'success', total: 1, done: 1, message: 'Import complete' }));
+                    setProgress(p => ({
+                        ...p, 
+                        state: ev.errors.length ? 'error' : 'success', 
+                        total: selected.size, 
+                        done: ev.total, 
+                        message: `Import complete${ev.errors.length ? ' with errors' : ''}`
+                    }));
                     setTableState('ready');
                     // Turn back on the download watcher
                     context.api.events.emit('enable-download-watch', true);
@@ -158,7 +164,7 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     if (ev.total > 0) setDeploymentRequired();
                     if (ev.errors?.length) setError({
                         title: 'Import encountered errors',
-                        detail: ev.errors.join('\n')
+                        detail: ev.errors.join('\n\n')
                     });
                 }
                 if (ev.type === 'fatal') {
@@ -235,6 +241,9 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     rescan={startScan}
                     exists={(id: string, version: string) => !!mods?.[`bethesdanet-${id}-${version}`]}
                 />
+                {error && (
+                    <ErrorAlert title={error.title} detail={error.detail} />
+                )}
                 <ImportProgressBar 
                     state={progress?.state}
                     message={progress?.message}
@@ -248,7 +257,7 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                         disabled={selected.size === 0 && tableState !== 'importing'}
                         style={{color: 'black'}}
                     >
-                        {tableState === 'importing' ? <Spinner /> : <Icon name='import' style={{ marginRight: '4px' }} />}
+                        {tableState === 'importing' ? <Spinner style={{ marginRight: '4px' }} /> : <Icon name='import' style={{ marginRight: '4px' }} />}
                         {t('Import {{selected}} Creation(s)', { selected: selected.size })}
                     </Button>
                     <Button 
@@ -280,12 +289,6 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     {t('Create ZIP archives for imported mods in the downloads folder')}
                     </label>
                 </div>
-                {error && (
-                    <Alert>
-                        <h3>{error.title}</h3>
-                        <p>{error.detail}</p>
-                    </Alert>
-                )}
             </Modal.Body>
             <Modal.Footer>
                 <Button disabled={!canCancel} onClick={() => onHide()}>{t('Close')}</Button>

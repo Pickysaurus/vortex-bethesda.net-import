@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import yazl from 'yazl';
 import { getBethesdaNetModsFromContentCatalogue, updateContentCatalogue } from './bethesdaNet';
 import { ImportEvent } from '../types/importEvents';
 import { createArchiveForCreation, ImportCreationError, importCreationToStagingFolder, removeCreationFilesFromData, toVortexMod } from './importCreation';
@@ -31,9 +30,15 @@ async function importMods(
 ) {
     cancelled = false;
     send({ type: 'message', level: 'info', message: `Starting Bethesda.net import for ${gameId} with IDs ${importIds.join(', ')}` });
+    send({
+        type: 'importprogress',
+        message: `Preparing to import ${importIds.length} creation(s)...`, 
+        total: importIds.length, done: 0
+    })
     let errors: string[] = [];
     const manifests = await getBethesdaNetModsFromContentCatalogue(gameId, localAppData, () => {});
     const modsToImport = manifests.filter(m => importIds.includes(m.id));
+    const successful: string[] = [];
     for (const mod of modsToImport) {
         if (cancelled) throw new Error('User Cancelled');
         const idx = modsToImport.indexOf(mod);
@@ -68,6 +73,7 @@ async function importMods(
                 mod, gamePath, stagingFolderPath, 
                 send, progress
             );
+            successful.push(mod.id);
         }
         catch(err: unknown) {
             if (err instanceof ImportCreationError) {
@@ -76,7 +82,7 @@ async function importMods(
                     if (err.fileErrors) {
                         const fileErrors = Object.entries(err.fileErrors).reduce((prev, cur) => {
                             const [key, error] = cur;
-                            prev += `\nFile error - ${key}: ${error}`;
+                            prev += `\n- ${key}: ${error}`;
                             return prev;
                         }, '');
                         error += fileErrors;
@@ -86,13 +92,12 @@ async function importMods(
                     if (err.stage === 'import-files') break;
                 }
                 else {
-                    // Failed at archive or cleanup step.
-                    errors.push()
-                    send({ type: 'fatal', error: err.message });
+                    // Failed at archive step.
+                    errors.push(err.message);
                 }
             }
             else if ((err as Error).message === 'User Cancelled') {
-                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: modsToImport.length });
+                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: successful.length });
                 return;
             }
             else send({ type: 'fatal', error: `Unknown error: ${(err as Error).message}` });
@@ -100,13 +105,13 @@ async function importMods(
     }
 
     try {
-        await updateContentCatalogue(gameId, localAppData, importIds);
+        await updateContentCatalogue(gameId, localAppData, successful);
     }
     catch(err) {
         errors.push(`Error removing imported mods from ContentCatalog.txt: ${(err as Error).message}`);
     }
 
-    send({ type: 'importcomplete', errors, total: modsToImport.length });
+    send({ type: 'importcomplete', errors, total: successful.length });
 }
 
 async function moveArchive(source: string, destPath: string) {

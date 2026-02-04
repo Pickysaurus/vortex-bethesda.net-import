@@ -109,12 +109,12 @@ function BethesdaCreationRow({ t, state, creation, selected, setSelected, exists
             <div className='checkbox'>
                 { exists && <span title={'Already imported'}><Icon name='toggle-enabled' /></span> }
                 { (state === 'importing' && selected && !exists) && <Spinner /> }
-                { (state === 'ready' || (state === 'importing' && !selected)) && !exists && (
+                { (state !== 'importing' || (state === 'importing' && !selected)) && !exists && (
                     <input 
                         type='checkbox'
                         checked={selected}
                         onChange={() => setSelected()}
-                        disabled={state === 'importing'}
+                        disabled={['importing', 'loading'].includes(state)}
                     />
                 )}
             </div>
