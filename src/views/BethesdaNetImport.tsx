@@ -162,7 +162,7 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     // Turn back on the download watcher
                     context.api.events.emit('enable-download-watch', true);
                     setSelected(new Set());
-                    if (ev.total > 0) setDeploymentRequired();
+                    if (ev.successful > 0) setDeploymentRequired();
                     if (ev.errors?.length) setError({
                         title: 'Import encountered errors',
                         detail: ev.errors.join('\n\n')

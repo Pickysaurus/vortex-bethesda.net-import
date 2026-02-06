@@ -105,7 +105,7 @@ async function importMods(
                 }
             }
             else if ((err as Error).message === 'User Cancelled') {
-                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: modsToImport.length });
+                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: modsToImport.length, successful: successful.length });
                 return;
             }
             else send({ type: 'fatal', error: `Unknown error: ${(err as Error).message}` });
@@ -119,7 +119,7 @@ async function importMods(
         errors.push(`Error removing imported mods from ContentCatalog.txt: ${(err as Error).message}`);
     }
 
-    send({ type: 'importcomplete', errors, total: modsToImport.length });
+    send({ type: 'importcomplete', errors, total: modsToImport.length, successful: successful.length });
 }
 
 process.on('message', async (message) => {

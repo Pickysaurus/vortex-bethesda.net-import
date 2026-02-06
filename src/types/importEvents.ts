@@ -8,7 +8,7 @@ export type ImportEvent<TMod = unknown, TLog = string> =
     | { type: 'scancomplete', total: number, errors: string[] }
     | { type: 'importedmod', mod: TMod }
     | { type: 'importprogress', done: number, total: number, message: string, detail?: string }
-    | { type: 'importcomplete', total: number, errors: string[] };
+    | { type: 'importcomplete', total: number, successful: number, errors: string[] };
 
 export type ImportMessage =
     | { type: 'cancel' }
