@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
-import { randomInt } from 'crypto';
+import { ImportEvent } from '../types/importEvents';
 
 type ContentCatalog = 
 {
@@ -23,24 +23,6 @@ type CatalogMod = {
     Version: string; 
 }
 
-// const _debugAddFakeMods = (total: number) => {
-//     let cur = 0;
-//     const result: { [id: string]: CatalogMod } = {};
-//     while (cur < total) {
-//         const id = randomInt(0, 10000);
-//         result[String(id)] = {
-//             AchievementSafe: false,
-//             Files: [],
-//             FilesSize: 0,
-//             Timestamp: Math.floor(new Date().getTime() / 1000),
-//             Title: `Example Mod ${id}`,
-//             Version: '1.0.0'
-//         }
-//         cur++;
-//     }
-//     return result;    
-// }
-
 const appData = (gameId: string): string | undefined => {
     switch(gameId) {
         case 'skyrimse': return "Skyrim Special Edition";
@@ -51,7 +33,7 @@ const appData = (gameId: string): string | undefined => {
     }
 }
 
-export async function getBethesdaNetModsFromContentCatalogue(gameId: string, localAppData: string, send: (ev: any) => void): Promise<IBethesdaNetEntry[]> {
+export async function getBethesdaNetModsFromContentCatalogue(gameId: string, localAppData: string, send: (ev: ImportEvent<any>) => void): Promise<IBethesdaNetEntry[]> {
     const gameAppDataFolder = appData(gameId);
     if (!localAppData || !gameAppDataFolder) throw new Error('LOCALAPPDATA for game could not be found');
 
@@ -61,8 +43,6 @@ export async function getBethesdaNetModsFromContentCatalogue(gameId: string, loc
         const catalogRaw = await fs.promises.readFile(manifestPath, { encoding: 'utf8' });
         let catalog: ContentCatalog = JSON.parse(catalogRaw);
         delete catalog.ContentCatalog;
-        // const fakeMods = _debugAddFakeMods(20);
-        // catalog = {...catalog, ...fakeMods };
         let mods = [];
         for (const key of Object.keys(catalog)) {
             const mod = catalog[key];
@@ -93,7 +73,7 @@ export async function getBethesdaNetModsFromContentCatalogue(gameId: string, loc
     }
 }
 
-export async function updateContentCatalogue(gameId: string, localAppData: string, importedIds: string[]) {
+export async function updateContentCatalogue(gameId: string, localAppData: string, importedIds: string[], send: (ev: ImportEvent<any>) => void) {
     const gameAppDataFolder = appData(gameId);
     if (!localAppData || !gameAppDataFolder) throw new Error('LOCALAPPDATA for game could not be found');
 
@@ -102,14 +82,19 @@ export async function updateContentCatalogue(gameId: string, localAppData: strin
 
     try {
         const catalogRaw = await fs.promises.readFile(manifestPath, { encoding: 'utf8' });
-        let catalog: ContentCatalog = JSON.parse(catalogRaw);
+        const catalog: Readonly<ContentCatalog> = JSON.parse(catalogRaw);
+        let newCatalog: ContentCatalog = {... catalog};
         for (const id of importedIds) {
-            if (catalog[id]) delete catalog[id];
+            send({ type: 'message', message: `Deleting ID: ${id}. Exists: ${!!newCatalog[id]}`, level: 'debug' })
+            if (newCatalog[id]) delete newCatalog[id];
         }
+        // Cancel if we didn't change anything!
+        if (Object.keys(catalog).length === Object.keys(newCatalog).length) 
+            return send({ type: 'message', message: `No change in IDs Old:${Object.keys(catalog).join(',')} New:${Object.keys(newCatalog).join(',')}`, level: 'debug' });
         // Backup the file
         await fs.promises.copyFile(manifestPath, manifestBackup);
         // Update the catalog
-        await fs.promises.writeFile(manifestPath, JSON.stringify(catalog, null, 2), { encoding: 'utf8' });
+        await fs.promises.writeFile(manifestPath, JSON.stringify(newCatalog, null, 2), { encoding: 'utf8' });
     }
     catch(err) {
         throw err;

@@ -81,7 +81,7 @@ async function importMods(
                 mod, gamePath, stagingFolderPath, 
                 send, progress
             );
-            successful.push(mod.id);
+            successful.push(mod.manifest);
         }
         catch(err: unknown) {
             if (err instanceof ImportCreationError) {
@@ -113,7 +113,7 @@ async function importMods(
     }
 
     try {
-        await updateContentCatalogue(gameId, localAppData, successful);
+        await updateContentCatalogue(gameId, localAppData, successful, send);
     }
     catch(err) {
         errors.push(`Error removing imported mods from ContentCatalog.txt: ${(err as Error).message}`);

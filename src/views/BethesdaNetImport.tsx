@@ -200,6 +200,7 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
     const canCancel = true;
 
     const startScan = () => {
+        setScanResults(undefined);
         setProgress((p) => ({...p, state: 'running'}));
         setError(undefined);
         setTableState('loading');
