@@ -199,7 +199,6 @@
   	border: 1px solid #CA8A04;
   	border-radius: 4px;
   	padding: 8px 12px;
-    margin-top: 0;
   	margin-bottom: 8px;
   	
   	h2 {
@@ -207,7 +206,8 @@
       font-weight: 600;
       font-size: 14px;
       line-height: 1.5;
-      margin: 8px 0;
+      margin-top: 0;
+  	  margin-bottom: 8px;
   	}
   	
   	p {
