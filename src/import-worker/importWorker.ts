@@ -1,8 +1,16 @@
-import fs from 'fs';
 import path from 'path';
-import { getBethesdaNetModsFromContentCatalogue, updateContentCatalogue } from './bethesdaNet';
-import { ImportEvent } from '../types/importEvents';
-import { createArchiveForCreation, ImportCreationError, importCreationToStagingFolder, removeCreationFilesFromData, toVortexMod } from './importCreation';
+import { 
+    getBethesdaNetModsFromContentCatalogue, 
+    updateContentCatalogue 
+} from './bethesdaNet';
+import { ImportEvent, ImportMessage } from '../types/importEvents';
+import { 
+    createArchiveForCreation, 
+    importCreationToStagingFolder, 
+    removeCreationFilesFromData, 
+    toVortexMod,
+    ImportCreationError
+} from './importCreation';
 
 let cancelled = false;
 
@@ -89,7 +97,7 @@ async function importMods(
                     }
                     // Completely abort the process if this stage fails.
                     errors.push(error);
-                    if (err.stage === 'import-files') break;
+                    // if (err.stage === 'import-files') break;
                 }
                 else {
                     // Failed at archive step.
@@ -97,7 +105,7 @@ async function importMods(
                 }
             }
             else if ((err as Error).message === 'User Cancelled') {
-                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: successful.length });
+                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: modsToImport.length });
                 return;
             }
             else send({ type: 'fatal', error: `Unknown error: ${(err as Error).message}` });
@@ -111,31 +119,16 @@ async function importMods(
         errors.push(`Error removing imported mods from ContentCatalog.txt: ${(err as Error).message}`);
     }
 
-    send({ type: 'importcomplete', errors, total: successful.length });
+    send({ type: 'importcomplete', errors, total: modsToImport.length });
 }
 
-async function moveArchive(source: string, destPath: string) {
-    const dest = path.join(destPath, path.basename(source));
-    try {
-        try {
-            const stat = await fs.promises.stat(dest).catch(() => undefined);
-            if (stat) await fs.promises.unlink(dest);
-            await fs.promises.rename(source, dest);
-        }
-        catch(e) {
-            if ((e as any)?.code !== "EXDEV") throw e;
-            // move across drive.
-            await fs.promises.copyFile(source, dest);
-            await fs.promises.unlink(source);
-        }
-        send({ type: 'message', level: 'debug', message: `Moved archive successfully from ${source} to ${dest}` })
-    }
-    catch(err) {
-        send({ type: 'fatal', error: `Failed to move mod archive to downloads folder: ${(err as Error).message}` });
-    }
-}
-
-process.on('message', async (msg) => {
+process.on('message', async (message) => {
+    if (
+        !message 
+        || typeof message !== 'object' 
+        || !('type' in message)
+    ) return;
+    const msg = message as ImportMessage;
     switch(msg.type) {
         case 'cancel': {
             cancelled = true;
@@ -153,12 +146,8 @@ process.on('message', async (msg) => {
             );
             return;
         }
-        case 'moveArchive': {
-            await moveArchive(msg.tempPath, msg.downloadFolder);
-            return;
-        }
         default: {
-            send({ type: 'fatal', error: `Unknown message event: ${msg.type}` });
+            send({ type: 'fatal', error: `Unknown message event: ${(msg as any)?.type}` });
             return;
         }
     }

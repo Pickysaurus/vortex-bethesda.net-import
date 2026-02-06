@@ -153,9 +153,10 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
                     setProgress(p => ({
                         ...p, 
                         state: ev.errors.length ? 'error' : 'success', 
-                        total: selected.size, 
+                        total: ev.total, 
                         done: ev.total, 
-                        message: `Import complete${ev.errors.length ? ' with errors' : ''}`
+                        message: `Import complete${ev.errors.length ? ' with errors' : ''}`,
+                        detail: ''
                     }));
                     setTableState('ready');
                     // Turn back on the download watcher
@@ -230,7 +231,6 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
             </Modal.Header>
             <Modal.Body>
                 <BethesdaImportInfo t={t} />
-                <hr />
                 <BethesdaCreationsList 
                     t={t}
                     state={tableState}

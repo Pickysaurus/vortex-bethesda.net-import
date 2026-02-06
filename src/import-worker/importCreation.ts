@@ -11,8 +11,8 @@ export class ImportCreationError extends Error {
     public stage: ImportStage;
     public fileErrors?:  { [id: string]: string }
 
-    constructor(stage: ImportStage, mainError: string, fileErrors?: { [id: string]: string }) {
-        super(`Error importing Creation: ${mainError ?? 'Unknown'}`);
+    constructor(stage: ImportStage, mainError: string, creationName: string, fileErrors?: { [id: string]: string }) {
+        super(`Error importing ${creationName || 'Creation'}: ${mainError ?? 'Unknown'}`);
         this.stage = stage;
         this.fileErrors = fileErrors;
     }
@@ -37,7 +37,7 @@ export async function importCreationToStagingFolder(
         const filesToImport = mod.files.map(f => ({ source: path.join(gamePath, 'Data', f), target: path.join(stagingFolderPath, f)}));
         // Create the staging folder - delete it if it exists already.
         const stagingStat = await fs.promises.stat(stagingFolderPath).catch(() => undefined);
-        if (stagingStat) await fs.promises.rmdir(stagingFolderPath, { recursive: true });
+        if (stagingStat) await fs.promises.rm(stagingFolderPath, { recursive: true });
         await fs.promises.mkdir(stagingFolderPath);
 
         // Track import success for files
@@ -58,8 +58,8 @@ export async function importCreationToStagingFolder(
             catch(e) {
                 const errorCode: string | undefined = (e as any)?.code;
                 if (errorCode !== "EXDEV") {
-                    if (errorCode === 'ENOENT') failedImports[`${mod.name}:${path.basename(source)}`] = `File does not exist at '${path.join('Data', path.basename(source))}'`;
-                    else failedImports[`${mod.name}:${path.basename(source)}`] = (e as Error).message;
+                    if (errorCode === 'ENOENT') failedImports[path.basename(source)] = `File does not exist at '${source.replace(gamePath, path.basename(gamePath))}'`;
+                    else failedImports[path.basename(source)] = (e as Error).message;
                     continue;
                 }
                 // Not on the same drive.
@@ -67,7 +67,7 @@ export async function importCreationToStagingFolder(
                     await fs.promises.copyFile(source, target);
                 }
                 catch(e2) {
-                    failedImports[`${mod.name}:${path.basename(source)}`] = (e2 as Error).message;
+                    failedImports[path.basename(source)] = (e2 as Error).message;
                 }
             }
 
@@ -76,10 +76,11 @@ export async function importCreationToStagingFolder(
         // If any part of the process failed, we need to abort!
         if (Object.keys(failedImports).length) {
             // Delete the staging folder we created.
-            await fs.promises.rmdir(stagingFolderPath, { recursive: true }).catch(() => undefined);
+            await fs.promises.rm(stagingFolderPath, { recursive: true }).catch(() => undefined);
             throw new ImportCreationError(
                 'import-files',
                 'Copying files to staging folder failed',
+                mod.name,
                 failedImports
             );
         }
@@ -90,10 +91,10 @@ export async function importCreationToStagingFolder(
     }
     catch(e: unknown) {
         // Remove the staging folder if we managed to create it
-        await fs.promises.rmdir(stagingFolderPath, { recursive: true }).catch(() => undefined);
+        await fs.promises.rm(stagingFolderPath, { recursive: true }).catch(() => undefined);
         // If it's an error we throw, just pass it on, otherwise reformat it.
         if (e instanceof ImportCreationError) throw e;
-        throw new ImportCreationError('import-files', (e as Error).message);
+        throw new ImportCreationError('import-files', (e as Error).message, mod.name);
     }
 
 }
@@ -156,7 +157,7 @@ export async function createArchiveForCreation(
         catch(err) {
             await fs.promises.unlink(tmpPath).catch(() => undefined);
             await fs.promises.unlink(dest).catch(() => undefined);
-            throw new ImportCreationError('create-archive', 'Failed to pack archive: '+(err as Error).message);
+            throw new ImportCreationError('create-archive', 'Failed to pack archive: '+(err as Error).message, mod.name);
         }
 }
 
@@ -187,7 +188,7 @@ export async function removeCreationFilesFromData(
     }
 
     if (errors && Object.keys(errors).length) {
-        throw new ImportCreationError('remove-files', 'Unexpected error cleaning up imported files', errors);
+        throw new ImportCreationError('remove-files', 'Unexpected error cleaning up imported files', mod.name, errors);
     }
 }
 

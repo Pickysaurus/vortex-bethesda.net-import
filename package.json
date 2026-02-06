@@ -17,7 +17,7 @@
     ]
   },
   "devDependencies": {
-    "@types/node": "^12.0.10",
+    "@types/node": "^25.2.1",
     "@types/react": "^19.2.8",
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
@@ -29,7 +29,7 @@
     "fs": "^0.0.1-security",
     "modmeta-db": "Nexus-Mods/modmeta-db",
     "react-bootstrap": "^0.32.4",
-    "ts-loader": "^6.0.4",
+    "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "vortex-api": "Nexus-Mods/vortex-api",
     "webpack": "^5.104.1",

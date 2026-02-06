@@ -38,46 +38,46 @@ export default function BethesdaCreationsList({ t, creations, state, selected, s
 
     return (
         <div>
-            <div className='bethesda-import-table'>
-                <div className='row header'>
-                    <div>
-                        <button onClick={toggleAll} title={selected.size ? 'Select none' : 'Select all'}>
-                            <Icon name={selected.size ? 'remove' : 'add'} />
-                        </button>
-                    </div>
-                    <div>{t('Name')}</div>
-                    <div>{t('Metadata')}</div>
+        <div className='bethesda-import-table'>
+            <div className='row header'>
+                <div>
+                    <button onClick={toggleAll} title={selected.size ? 'Select none' : 'Select all'}>
+                        <Icon name={selected.size ? 'remove' : 'add'} />
+                    </button>
                 </div>
-                { state === 'loading' && (
-                    <div className='cover' style={{padding: '8px 16px'}}>
-                        <img 
-                            src={`file://${__dirname}/bethesda.png`} 
-                            className='icon-spin' 
-                            style={{ height: '30px', width: '30px', animationDuration: '1.5s' }} 
-                        />
-                        <p>{t('Getting Bethesda.net mod information...')}</p>
-                    </div>
-                )}
-                { creations && mods.length === 0 && (
-                    <div className='cover' style={{ flexDirection: 'column' }}>
-                        <p>{ t('No creations detected') }</p>
-                        <Button onClick={() => rescan()}>
-                            <Icon name='refresh' /> {t('Check again')}
-                        </Button>
-                    </div>
-                ) }
-                {mods.map(m => (
-                    <BethesdaCreationRow 
-                        t={t}
-                        key={m.id} 
-                        state={state}
-                        creation={m} 
-                        selected={selected.has(m.id)}
-                        setSelected={() => toggleSelect(m.id)}
-                        exists={exists(m.id, m.version)}
-                    />
-                ))}
+                <div>{t('Name')}</div>
+                <div>{t('Metadata')}</div>
             </div>
+            { state === 'loading' && (
+                <div className='cover' style={{padding: '8px 16px'}}>
+                    <img 
+                        src={`file://${__dirname}/bethesda.png`} 
+                        className='icon-spin' 
+                        style={{ height: '30px', width: '30px', animationDuration: '1.5s' }} 
+                    />
+                    <p>{t('Getting Bethesda.net mod information...')}</p>
+                </div>
+            )}
+            { creations && mods.length === 0 && (
+                <div className='cover' style={{ flexDirection: 'column' }}>
+                    <p>{ t('No creations detected') }</p>
+                    <Button onClick={() => rescan()}>
+                        <Icon name='refresh' /> {t('Check again')}
+                    </Button>
+                </div>
+            ) }
+            {mods.map(m => (
+                <BethesdaCreationRow 
+                    t={t}
+                    key={m.id} 
+                    state={state}
+                    creation={m} 
+                    selected={selected.has(m.id)}
+                    setSelected={() => toggleSelect(m.id)}
+                    exists={exists(m.id, m.version)}
+                />
+            ))}
+        </div>
         </div>
     )
 }

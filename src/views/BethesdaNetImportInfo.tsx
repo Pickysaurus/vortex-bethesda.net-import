@@ -7,7 +7,7 @@ interface IProps {
 
 export default function BethesdaImportInfo({ t }: IProps) {
     return (
-        <div className='bethesda-start'>
+        <div style={{marginBottom: '8px'}}>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
                 <img src={`file://${__dirname}/beth-to-vortex.png`} style={{ maxHeight: '75px' }} />
             </div>
