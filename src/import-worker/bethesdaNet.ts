@@ -61,7 +61,7 @@ export async function getBethesdaNetModsFromContentCatalogue(gameId: string, loc
                 manifest: key
             }
             send?.({ type: 'scanparsed', id: entry.id, data: entry });
-            await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
+            // await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
             mods.push(entry);
         }
         return mods;

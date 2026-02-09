@@ -47,70 +47,79 @@ async function importMods(
     const manifests = await getBethesdaNetModsFromContentCatalogue(gameId, localAppData, () => {});
     const modsToImport = manifests.filter(m => importIds.includes(m.id));
     const successful: string[] = [];
-    for (const mod of modsToImport) {
-        if (cancelled) throw new Error('User Cancelled');
-        const idx = modsToImport.indexOf(mod);
-        const vortexId = `bethesdanet-${mod.id}-${mod.version}`;
-        const stagingFolderPath = path.join(stagingFolder, vortexId);
+    try {
+        for (const mod of modsToImport) {
+            if (cancelled) throw new Error('User Cancelled');
+            const idx = modsToImport.indexOf(mod);
+            const vortexId = `bethesdanet-${mod.id}-${mod.version}`;
+            const stagingFolderPath = path.join(stagingFolder, vortexId);
 
-        const progress: ImportEvent = {
-            type: 'importprogress',
-            message: `Importing "${mod.name}"...`, 
-            detail: '',
-            done: idx,
-            total: modsToImport.length
-        }
+            const progress: ImportEvent = {
+                type: 'importprogress',
+                message: `Importing "${mod.name}"...`, 
+                detail: '',
+                done: idx,
+                total: modsToImport.length
+            }
 
-        try {
-            let vortexMod = await importCreationToStagingFolder(
-                vortexId, mod, gameId, 
-                stagingFolderPath, gamePath, 
-                send, progress
-            );
-            // Create a backup archive
-            if (createArchives === true) {
-                vortexMod = await createArchiveForCreation(
-                    vortexId, stagingFolderPath, downloadFolder,
-                    vortexMod, mod, send, progress
+            try {
+                let vortexMod = await importCreationToStagingFolder(
+                    vortexId, mod, gameId, 
+                    stagingFolderPath, gamePath, 
+                    send, progress
                 );
+                // Create a backup archive
+                if (createArchives === true) {
+                    vortexMod = await createArchiveForCreation(
+                        vortexId, stagingFolderPath, downloadFolder,
+                        vortexMod, mod, send, progress
+                    );
+                }
+                // Send the mod info we have back to the UI.
+                send({ type: 'importedmod', mod: vortexMod });
+                // Clean up the files that we've copied
+                await removeCreationFilesFromData(
+                    mod, gamePath, stagingFolderPath, 
+                    send, progress
+                );
+                successful.push(mod.manifest);
             }
-            // Send the mod info we have back to the UI.
-            send({ type: 'importedmod', mod: vortexMod });
-            // Clean up the files that we've copied
-            await removeCreationFilesFromData(
-                mod, gamePath, stagingFolderPath, 
-                send, progress
-            );
-            successful.push(mod.manifest);
-        }
-        catch(err: unknown) {
-            if (err instanceof ImportCreationError) {
-                if (err.stage === 'import-files' || err.stage === 'remove-files') {
-                    let error = err.message;
-                    if (err.fileErrors) {
-                        const fileErrors = Object.entries(err.fileErrors).reduce((prev, cur) => {
-                            const [key, error] = cur;
-                            prev += `\n- ${key}: ${error}`;
-                            return prev;
-                        }, '');
-                        error += fileErrors;
+            catch(err: unknown) {
+                if (err instanceof ImportCreationError) {
+                    if (err.stage === 'import-files' || err.stage === 'remove-files') {
+                        let error = err.message;
+                        if (err.fileErrors) {
+                            const fileErrors = Object.entries(err.fileErrors).reduce((prev, cur) => {
+                                const [key, error] = cur;
+                                prev += `\n- ${key}: ${error}`;
+                                return prev;
+                            }, '');
+                            error += fileErrors;
+                        }
+                        // Completely abort the process if this stage fails.
+                        errors.push(error);
+                        // if (err.stage === 'import-files') break;
                     }
-                    // Completely abort the process if this stage fails.
-                    errors.push(error);
-                    // if (err.stage === 'import-files') break;
+                    else {
+                        // Failed at archive step.
+                        errors.push(err.message);
+                    }
                 }
-                else {
-                    // Failed at archive step.
-                    errors.push(err.message);
-                }
+                else send({ type: 'fatal', error: `Unknown error: ${(err as Error).message}` });
             }
-            else if ((err as Error).message === 'User Cancelled') {
-                send({ type: 'importcomplete', errors: ['Import was aborted by the user'], total: modsToImport.length, successful: successful.length });
-                return;
-            }
-            else send({ type: 'fatal', error: `Unknown error: ${(err as Error).message}` });
+        }
+
+    }
+    catch(err: unknown) {
+        if ((err as Error).message === 'User cancelled') {
+            errors.push('Import process was cancelled by the user');
+        }
+        else {
+            errors.push((err as Error).message);
+            send({ type: 'fatal', error: 'Unexpected error: '+(err as Error)?.message });
         }
     }
+
 
     try {
         await updateContentCatalogue(gameId, localAppData, successful, send);

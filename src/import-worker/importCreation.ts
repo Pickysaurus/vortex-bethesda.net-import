@@ -48,7 +48,7 @@ export async function importCreationToStagingFolder(
             // Update the progress
             importProgress.detail = `Importing ${path.basename(source)}`;
             send(importProgress);
-            await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
+            // await new Promise<void>(resolve => setTimeout(resolve, 100)); //SLOW DOWN
 
             try {
                 // Check the file exists and rename it (only works on the same parition)
@@ -149,7 +149,7 @@ export async function createArchiveForCreation(
             importProgress.detail = 'Moving archive to downloads';
             send(importProgress);
 
-            await new Promise<void>(resolve => setTimeout(resolve, 1000)); //SLOW DOWN
+            // await new Promise<void>(resolve => setTimeout(resolve, 100)); //SLOW DOWN
 
             return vortexMod;
 
