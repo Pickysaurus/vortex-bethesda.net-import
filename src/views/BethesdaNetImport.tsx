@@ -1,6 +1,6 @@
 import { actions, Icon, log, MainContext, Modal, selectors, Spinner, types, util } from 'vortex-api';
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { Alert, Button } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
 import { useSelector, useStore } from "react-redux";
 import { useTranslation } from 'react-i18next';
