@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
           version:
-            description: 'Release version'
-            required: true
+            description: 'Release version - package.json version will be used by default'
+            required: false
 
 
 permissions:
@@ -86,7 +86,7 @@ jobs:
       
       - name: Get Latest File ID
         id: nexus_latest
-        run: node .github/workflows/get-latest-file-id.js >> $GITHUB_OUTPUT
+        run: node .github/workflows/fetchLatestFile.js >> $GITHUB_OUTPUT
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
           NEXUS_GAME_ID: ${{ vars.NEXUSMODS_GAME_ID }}
