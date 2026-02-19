@@ -6,7 +6,6 @@ on:
           version:
             description: 'Release version'
             required: true
-            default: '1.0.0'
 
 
 permissions:
@@ -87,7 +86,7 @@ jobs:
       
       - name: Get Latest File ID
         id: nexus_latest
-        run: node .github/scripts/get-latest-file-id.js >> $GITHUB_OUTPUT
+        run: node .github/workflows/get-latest-file-id.js >> $GITHUB_OUTPUT
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
           NEXUS_GAME_ID: ${{ vars.NEXUSMODS_GAME_ID }}
