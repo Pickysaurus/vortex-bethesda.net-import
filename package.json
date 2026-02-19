@@ -1,6 +1,6 @@
 {
   "name": "import-from-bethesda.net",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Import mods managed by Bethesda.net into Vortex",
   "main": "./out/index.js",
   "repository": "",
