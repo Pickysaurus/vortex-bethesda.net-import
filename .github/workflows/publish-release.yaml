@@ -104,6 +104,6 @@ jobs:
           game_domain_name:  ${{ vars.NEXUSMODS_GAME_DOMAIN }}
           display_name: Import from Bethesda.net
           filename: ${{ needs.build.outputs.zip_name }}
-          version: ${{ github.event.inputs.version }}
+          version: ${{ github.event.inputs.version || needs.build.outputs.version }}
 
           
