@@ -101,8 +101,8 @@ jobs:
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
           file_id: ${{ steps.nexus_latest.outputs.latest_file_id }}
-          game_domain_name: site
-          name: Import from Bethesda.net
+          game_domain_name:  ${{ vars.NEXUSMODS_GAME_DOMAIN }}
+          display_name: Import from Bethesda.net
           filename: ${{ needs.build.outputs.zip_name }}
           version: ${{ github.event.inputs.version }}
 
