@@ -1,3 +1,4 @@
+const fs = require('fs');
 const gameId = process.env.NEXUS_GAME_ID;
 const modId = process.env.NEXUS_MOD_ID;
 const apiKey = process.env.NEXUS_API_KEY;
@@ -60,7 +61,13 @@ async function run() {
   }
 
   // GitHub Actions output
-  console.log(`latest_file_id=${latest.fileId}`);
+  
+  console.log(`Resolved latest fileId: ${latest.fileId}`);
+  setOutput("latest_file_id", latest.fileId);
+}
+
+function setOutput(name, value) {
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
 }
 
 run().catch((err) => {

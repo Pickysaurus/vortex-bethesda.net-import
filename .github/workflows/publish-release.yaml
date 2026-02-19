@@ -85,7 +85,7 @@ jobs:
       
       - name: Get Latest File ID
         id: nexus_latest
-        run: node .github/scripts/fetchLatestFileId.js >> $GITHUB_OUTPUT
+        run: node .github/scripts/fetchLatestFileId.js
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
           NEXUS_GAME_ID: ${{ vars.NEXUSMODS_GAME_ID }}
