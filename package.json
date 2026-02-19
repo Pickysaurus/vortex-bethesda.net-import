@@ -1,13 +1,14 @@
 {
   "name": "import-from-bethesda.net",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Import mods managed by Bethesda.net into Vortex",
   "main": "./out/index.js",
   "repository": "",
   "scripts": {
     "webpack": "node ./node_modules/webpack/bin/webpack --config webpack.config.js --progress --profile --color",
     "bundle7z": "7z a -t7z sample-extension.7z .\\dist\\index.js .\\dist\\info.json",
-    "build": "npm run webpack && copyfiles -f src/stylesheets/* dist && copyfiles -f src/images/* dist && extractInfo"
+    "build": "npm run webpack && npm run copyassets && extractInfo",
+    "copyassets": "cpy \"src/stylesheets/*\" dist --flat && cpy \"src/images/*\" dist --flat"
   },
   "author": "Pickysaurus",
   "license": "GPL-3.0",
@@ -22,13 +23,9 @@
     "@types/redux": "^3.6.0",
     "@types/redux-thunk": "^2.1.0",
     "@types/yazl": "^3.3.0",
-    "7z-bin": "Nexus-Mods/7z-bin",
-    "bluebird": "^3.5.5",
-    "copyfiles": "^2.4.1",
+    "cpy-cli": "^7.0.0",
     "electron": "^40.0.0",
     "fs": "^0.0.1-security",
-    "modmeta-db": "Nexus-Mods/modmeta-db",
-    "react-bootstrap": "^0.32.4",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
     "vortex-api": "Nexus-Mods/vortex-api",

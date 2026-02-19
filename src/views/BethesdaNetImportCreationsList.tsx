@@ -1,6 +1,6 @@
 import React from 'react';
 import { Icon, Spinner, util } from 'vortex-api';
-import { Button } from 'react-bootstrap';
+import Button from './Button';
 import { TFunction } from "vortex-api/lib/util/i18n";
 import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
 

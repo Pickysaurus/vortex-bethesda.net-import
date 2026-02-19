@@ -132,6 +132,7 @@ async function importMods(
 }
 
 process.on('message', async (message) => {
+    send({ type: 'message', level: 'debug', message: `Got message: ${JSON.stringify(message)}` });
     if (
         !message 
         || typeof message !== 'object' 

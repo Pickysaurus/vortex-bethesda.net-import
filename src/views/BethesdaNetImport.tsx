@@ -1,6 +1,6 @@
 import { actions, Icon, log, MainContext, Modal, selectors, Spinner, types, util } from 'vortex-api';
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { Button } from 'react-bootstrap';
+import Button from './Button';
 import { IBethesdaNetEntry } from '../types/bethesdaNetEntries';
 import { useSelector, useStore } from "react-redux";
 import { useTranslation } from 'react-i18next';
@@ -176,16 +176,7 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
             });
 
             offRef.current = off;
-            startScan();
-
-            return () => {
-                log('debug', 'Disposing Bethesda.net importer child process');
-                off();
-                svc.dispose();
-                serviceRef.current = null;
-            }
-
-            
+            startScan();            
         }
         else if (wasVisible === true && visible === false) {
             log('debug', 'Disposing Bethesda.net importer child process as modal is closed');
@@ -195,6 +186,14 @@ export default function BethesdaNetImport({ visible, onHide }: IProps) {
             context.api.events.emit('enable-download-watch', true);
         }
         prevVisibleRef.current = visible;
+
+        return () => {
+            log('debug', 'Disposing Bethesda.net importer child process');
+            offRef.current?.();
+            serviceRef.current?.dispose();
+            serviceRef.current = null;
+            context.api.events.emit('enable-download-watch', true);
+        }
     }, [visible]);
 
     const canCancel = true;

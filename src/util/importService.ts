@@ -20,7 +20,7 @@ export function createImportService() {
         const script = path.join(__dirname, "importWorker.js");
         child = fork(script, [], { stdio: ["pipe", "pipe", "pipe", "ipc"] });
 
-        child.on('message', (ev) => emit({ type: 'message', message: String(ev), level: 'debug'}));
+        // child.on('message', (ev) => emit({ type: 'message', message: String(ev), level: 'debug'}));
         child.on('error', (err) => emit({ type: 'fatal', error: String(err) }));
         child.on('exit', (code) => {
             emit({ type: 'exit', code });
