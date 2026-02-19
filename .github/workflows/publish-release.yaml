@@ -18,8 +18,7 @@ jobs:
 
     outputs: 
       version: ${{ steps.meta.outputs.version }}
-      latest_file_id:  ${{ steps.nexus_latest.outputs.latest_file_id }}
-      zip-name: ${{ steps.meta.outputs.zip_name }}
+      zip_name: ${{ steps.meta.outputs.zip_name }}
 
     steps:
       - name: Checkout
@@ -86,7 +85,7 @@ jobs:
       
       - name: Get Latest File ID
         id: nexus_latest
-        run: node .github/workflows/fetchLatestFile.js >> $GITHUB_OUTPUT
+        run: node .github/scripts/fetchLatestFileId.js >> $GITHUB_OUTPUT
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
           NEXUS_GAME_ID: ${{ vars.NEXUSMODS_GAME_ID }}
@@ -101,7 +100,7 @@ jobs:
         uses: Nexus-Mods/upload-action@main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_id: ${{ needs.build.outputs.latest_file_id }}
+          file_id: ${{ steps.nexus_latest.outputs.latest_file_id }}
           game_domain_name: site
           name: Import from Bethesda.net
           filename: ${{ needs.build.outputs.zip_name }}
