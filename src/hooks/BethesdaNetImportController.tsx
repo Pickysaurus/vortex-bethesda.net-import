@@ -45,6 +45,12 @@ export default function useBethesdaNetImportController(visible: boolean) {
 
     const serviceRef = useRef<ReturnType<typeof createImportService> | null>(null);
 
+    const activeStateRef = useRef({ gameId, discoveryPath, stagingFolder, downloadFolder });
+
+    useEffect(() => {
+        activeStateRef.current = { gameId, discoveryPath, stagingFolder, downloadFolder };
+    }, [gameId, discoveryPath, stagingFolder, downloadFolder]);
+
     const addMod = useCallback((mod: types.IMod, gameId: string) => {
         store.dispatch(
             actions.addMod(gameId, mod)
@@ -77,25 +83,8 @@ export default function useBethesdaNetImportController(visible: boolean) {
         )
     }, []);
 
-    useEffect(() => {
-        if (!visible) return;
-
-        const svc = createImportService();
-        serviceRef.current = svc;
-
-        const off = svc.onEvent(handleEvent);
-
-        startScan();
-
-        return () => {
-        off();
-        svc.dispose();
-        serviceRef.current = null;
-        context.api.events.emit('enable-download-watch', true);
-        };
-    }, [visible]);
-
-    const handleEvent = (ev: ImportEvent<types.IMod, LogLevel>) => {
+    const handleEvent = useCallback((ev: ImportEvent<types.IMod, LogLevel>) => {
+        const { gameId: currentGameId } = activeStateRef.current; 
         console.log('Bethesda.net Import Event triggered', ev);
         switch(ev.type) {
             case 'scanparsed': 
@@ -122,13 +111,13 @@ export default function useBethesdaNetImportController(visible: boolean) {
                 if (ev.mod.archiveId) {
                     const { attributes, archiveId } = ev.mod;
                     const { fileSize,  fileName, version, logicalFileName } = attributes!;
-                    addLocalDownload(archiveId, gameId, fileName!, fileSize || 0);
+                    addLocalDownload(archiveId, currentGameId, fileName!, fileSize || 0);
                     setDownloadModInfo(archiveId, 'name', logicalFileName!);
                     setDownloadModInfo(archiveId, 'version', version!);
-                    setDownloadModInfo(archiveId, 'game', gameId);
+                    setDownloadModInfo(archiveId, 'game', currentGameId);
 
                 }
-                addMod(ev.mod, gameId);
+                addMod(ev.mod, currentGameId);
                 enableProfileMod(ev.mod.id);
                 break;
             case 'importcomplete': 
@@ -162,7 +151,25 @@ export default function useBethesdaNetImportController(visible: boolean) {
                 break;
             default: log('warn', `Unknown Bethesda.net Import Event: ${JSON.stringify(ev satisfies never)}`);         
         }
-    }
+    }, [addMod, addLocalDownload, setDownloadModInfo]);
+
+    useEffect(() => {
+        if (!visible) return;
+
+        const svc = createImportService();
+        serviceRef.current = svc;
+
+        const off = svc.onEvent(handleEvent);
+
+        startScan();
+
+        return () => {
+            off();
+            svc.dispose();
+            serviceRef.current = null;
+            context.api.events.emit('enable-download-watch', true);
+        };
+    }, [visible, handleEvent]);
 
     const startScan = () => {
         setScanResults(undefined);
