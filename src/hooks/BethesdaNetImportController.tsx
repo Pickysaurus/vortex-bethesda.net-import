@@ -167,6 +167,7 @@ export default function useBethesdaNetImportController(visible: boolean) {
             off();
             svc.dispose();
             serviceRef.current = null;
+            setProgress(defaultImportProgress);
             context.api.events.emit('enable-download-watch', true);
         };
     }, [visible, handleEvent]);
