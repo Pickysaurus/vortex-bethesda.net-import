@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build:
-    name: Build Extensions
+    name: Build Project
     runs-on: ubuntu-latest
 
     outputs: 
@@ -83,14 +83,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       
-      - name: Get Latest File ID
-        id: nexus_latest
-        run: node .github/scripts/fetchLatestFileId.js
-        env:
-          NEXUS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
-          NEXUS_GAME_ID: ${{ vars.NEXUSMODS_GAME_ID }}
-          NEXUS_MOD_ID: ${{ vars.NEXUSMODS_MOD_ID }}
-      
       - name: Get Extension Artifact
         uses: actions/download-artifact@v4
         with:
@@ -100,7 +92,7 @@ jobs:
         uses: Nexus-Mods/upload-action@main
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_id: ${{ steps.nexus_latest.outputs.latest_file_id }}
+          file_group_id: ${{ vars.NEXUSMODS_FILE_GROUP }}
           game_domain_name:  ${{ vars.NEXUSMODS_GAME_DOMAIN }}
           display_name: Import from Bethesda.net
           filename: ${{ needs.build.outputs.zip_name }}
