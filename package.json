@@ -24,7 +24,7 @@
     "@types/redux-thunk": "^2.1.0",
     "@types/yazl": "^3.3.0",
     "cpy-cli": "^7.0.0",
-    "electron": "^40.0.0",
+    "electron": "^40.8.4",
     "fs": "^0.0.1-security",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
