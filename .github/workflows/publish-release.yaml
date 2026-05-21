@@ -96,7 +96,5 @@ jobs:
           display_name: Import from Bethesda.net
           filename: ${{ needs.build.outputs.zip_name }}
           version: ${{ github.event.inputs.version || needs.build.outputs.version }}
-          primary_mod_manager_download: true
-          allow_mod_manager_download: false
 
           
