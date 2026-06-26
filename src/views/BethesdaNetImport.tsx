@@ -19,6 +19,12 @@ const secondaryButtonStyle: React.CSSProperties = {
     color: 'rgba(255,255,255,.4)',
 }
 
+function sanitizeModId(input: string): string {
+      // Allow only alphanumeric characters, hyphens, underscores, and periods
+        return input.replace(/[^a-zA-Z0-9.\-_]/g, '');
+        }
+}
+
 export default function BethesdaNetImportSimple({ visible, onHide }: IProps) {
     const {
         mods,
@@ -56,7 +62,7 @@ export default function BethesdaNetImportSimple({ visible, onHide }: IProps) {
                     setSelected={setSelected}
                     disabled={false}
                     rescan={startScan}
-                    exists={(id: string, version: string) => !!mods?.[`bethesdanet-${id}-${version}`]}
+                    exists={(id: string, version: string) => !!mods?.[sanitizeModId(`bethesdanet-${id}-${version}`)]}
                 />
                 {error && (
                     <ErrorAlert title={error.title} detail={error.detail} />
