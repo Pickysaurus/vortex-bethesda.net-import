@@ -18,6 +18,11 @@ function send(ev: ImportEvent<ReturnType<typeof toVortexMod>>) {
     process.send?.(ev);
 }
 
+function sanitizeModId(input: string): string {
+  // Allow only alphanumeric characters, hyphens, underscores, and periods
+  return input.replace(/[^a-zA-Z0-9.\-_]/g, '');
+}
+
 async function scan(gameId: string, localAppData: string) {
     cancelled = false;
     const errors: string[] = [];
@@ -51,7 +56,7 @@ async function importMods(
         for (const mod of modsToImport) {
             if (cancelled) throw new Error('User Cancelled');
             const idx = modsToImport.indexOf(mod);
-            const vortexId = `bethesdanet-${mod.id}-${mod.version}`;
+            const vortexId = sanitizeModId(`bethesdanet-${mod.id}-${mod.version}`);
             const stagingFolderPath = path.join(stagingFolder, vortexId);
 
             const progress: ImportEvent = {
