@@ -20,9 +20,8 @@ const secondaryButtonStyle: React.CSSProperties = {
 }
 
 function sanitizeModId(input: string): string {
-      // Allow only alphanumeric characters, hyphens, underscores, and periods
-        return input.replace(/[^a-zA-Z0-9.\-_]/g, '');
-        }
+    // Allow only alphanumeric characters, hyphens, underscores, and periods
+    return input.replace(/[^a-zA-Z0-9.\-_]/g, '');
 }
 
 export default function BethesdaNetImportSimple({ visible, onHide }: IProps) {
